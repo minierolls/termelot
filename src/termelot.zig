@@ -23,6 +23,22 @@ pub const ColorBit24 = style_import.ColorBit24;
 const rune_import = @import("rune.zig");
 pub const Rune = rune_import.Rune;
 
+const event_import = @import("event.zig");
+
+pub const KeyCallback = event_import.KeyCallback;
+pub const KeyEvent = event_import.KeyEvent;
+pub const KeyValue = event_import.KeyValue;
+pub const KeyValueType = event_import.KeyValueType;
+pub const KeyModifier = event_import.KeyModifier;
+pub const KeyValueFunction = event_import.KeyValueFunction;
+pub const KeyValueNavigation = event_import.KeyValueNavigation;
+pub const KeyValueEdit = event_import.KeyValueEdit;
+
+pub const MouseCallback = event_import.MouseCallback;
+pub const MouseEvent = event_import.MouseEvent;
+pub const MouseAction = event_import.MouseAction;
+pub const MouseButton = event_import.MouseButton;
+
 pub const Config = struct {
     // TODO
 };
@@ -43,14 +59,6 @@ pub const Position = packed struct {
 pub const Cell = struct {
     rune: Rune,
     style: Style,
-};
-
-pub const KeyCallback = struct {
-    // TODO
-};
-
-pub const MouseCallback = struct {
-    // TODO
 };
 
 pub const Termelot = struct {
