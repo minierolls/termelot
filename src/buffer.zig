@@ -1,4 +1,6 @@
 // Copyright (c) 2020 Termelot Contributors.
+
+// SPDX-License-Identifier: MIT
 // This file belongs to the Termelot project under the MIT license.
 
 const std = @import("std");
@@ -252,11 +254,11 @@ pub const Buffer = struct {
                         @as(u32, self.size.cols) +
                         @as(u32, col_index);
 
-                    if (rune.equal(
+                    if (std.meta.eql(
                         self.rune_buffer.items[b_index],
                         self.old_rune_buffer.items[b_index],
                     ) and
-                        style.equal(
+                        std.meta.eql(
                         self.style_buffer.items[b_index],
                         self.old_style_buffer.items[b_index],
                     )) {

@@ -1,38 +1,19 @@
 // Copyright (c) 2020 Termelot Contributors.
+
+// SPDX-License-Identifier: MIT
 // This file is part of the Termelot project under the MIT license.
 
 pub const Style = struct {
     fg_color: Color,
     bg_color: Color,
     decorations: Decorations,
-
-    const Self = @This();
-
-    pub fn equal(self: Self, other: Style) bool {
-        return self.fg_color.equal(other.fg_color) and
-            self.bg_color.equal(other.bg_color) and
-            self.decorations.equal(other.decorations);
-    }
 };
-
-pub fn equal(a: Style, b: Style) bool {
-    return a.equal(b);
-}
 
 pub const Decorations = packed struct {
     bold: bool,
     italic: bool,
     underline: bool,
     blinking: bool,
-
-    const Self = @This();
-
-    pub fn equal(self: Self, other: Decorations) bool {
-        return self.bold == other.bold and
-            self.italic == other.italic and
-            self.underline == other.underline and
-            self.blinking == other.blinking;
-    }
 };
 
 pub const Color = union(ColorType) {
@@ -40,18 +21,6 @@ pub const Color = union(ColorType) {
     Named16: ColorNamed16,
     Bit8: Bit8,
     Bit24: Bit24,
-
-    const Self = @This();
-
-    pub fn equal(self: Self, other: Color) bool {
-        if (@as(ColorType, self) != @as(ColorType, other)) return false;
-        return switch (self) {
-            ColorType.Default => true,
-            ColorType.Named16 => |name| name == other.Named16,
-            ColorType.Bit8 => |value| value.code == other.Bit8.code,
-            ColorType.Bit24 => |value| value.code == other.Bit24.code,
-        };
-    }
 };
 
 pub const ColorType = enum {
