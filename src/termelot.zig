@@ -76,6 +76,7 @@ pub const Termelot = struct {
     pub fn init(
         allocator: *std.mem.allocator,
         config: Config,
+        initial_buffer_size: ?Size,
     ) !Termelot {
         var result = Termelot{
             .config = config,
@@ -90,11 +91,17 @@ pub const Termelot = struct {
 
         result.supported_features = result.backend.getSupportedFeatures();
         // TODO: Fill initial screen size
-        // TODO: Fill initial buffer size, maybe from config?
-        result.screen_buffer = try Buffer.init(&result.backend, allocator);
+        // TODO: Instead of passing backend pointer, consider getting parent
+        //       pointer -> backend from inside the buffer struct.
+        result.screen_buffer = try Buffer.init(
+            &result.backend,
+            allocator,
+            initial_buffer_size,
+        );
+        errdefer result.screen_buffer.deinit();
 
         //TODO: Fill backend mainloop parameters
-        self.backend.start();
+        try self.backend.start();
 
         return result;
     }

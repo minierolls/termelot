@@ -261,7 +261,7 @@ pub const Buffer = struct {
                         self.old_style_buffer.items[b_index],
                     )) {
                         if (diff_origin) |i| {
-                            self.backend.write(
+                            try self.backend.write(
                                 Position{ .row = row_index, .col = col_index },
                                 self.rune_buffer.items[i..b_index],
                                 self.style_buffer.items[i..b_index],
@@ -274,7 +274,7 @@ pub const Buffer = struct {
                 }
 
                 if (diff_origin) |i| {
-                    self.backend.write(
+                    try self.backend.write(
                         Position{ .row = row_index, .col = col_index },
                         self.rune_buffer.items[i..b_index],
                         self.style_buffer.items[i..b_index],
@@ -314,7 +314,7 @@ pub const Buffer = struct {
                 const row_start: u32 = @as(u32, row_index) *
                     @as(u32, self.size.cols);
                 const row_end: u32 = row_start + @as(u32, self.size.cols);
-                self.backend.write(
+                try self.backend.write(
                     Position{ .row = row_index, .col = 0 },
                     self.rune_buffer.items[row_start..row_end],
                     self.style_buffer.items[row_start..row_end],
