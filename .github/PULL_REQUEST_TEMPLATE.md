@@ -24,3 +24,7 @@ I would like feedback on the following parts of my pull request:
   changes made
 - [ ] Trivial commits (including merge commits) are edited and squashed if
   possible
+- [ ] All source files follow the recommended style guide
+  (see the "Style" section in CONTRIBUTING.md for more details)
+- [ ] All source files are formatted using their respective recommend tools
+  (see the "Style" section in CONTRIBUTING.md for more details)

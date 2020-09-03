@@ -37,6 +37,13 @@ Some example tags include:
 Commits should be self-contained and single-responsibility if possible, with
 accompanying summaries and descriptions in the commit message.
 
+## Style
+
+All source code styling should follow the
+[Zig style guide](https://ziglang.org/documentation/master/#Style-Guide).
+
+All source code should be formatted with `zig fmt`.
+
 ## Backend
 
 The easiest way to contribute a backend implementation is to copy all
