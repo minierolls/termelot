@@ -27,22 +27,22 @@ pub const Backend = struct {
     }
 
     /// Retrieve raw mode status.
-    pub fn getRawMode() !bool {
+    pub fn getRawMode(self: *Self) !bool {
         @compileError("Unimplemented");
     }
 
     /// Enter/exit raw mode.
-    pub fn setRawMode(enabled: bool) !void {
+    pub fn setRawMode(self: *Self, enabled: bool) !void {
         @compileError("Unimplemented");
     }
 
     /// Retrieve alternate screen status.
-    pub fn getAlternateScreen() !bool {
+    pub fn getAlternateScreen(self: *Self) !bool {
         @compileError("Unimplemented");
     }
 
     /// Enter/exit alternate screen.
-    pub fn setAlternateScreen(enabled: bool) !void {
+    pub fn setAlternateScreen(self: *Self, enabled: bool) !void {
         @compileError("Unimplemented");
     }
 
