@@ -73,36 +73,32 @@ pub const Termelot = struct {
 
     const Self = @This();
 
+    /// This function should be called *after* declaring a `Termelot` struct:
+    ///     var termelot: Termelot = undefined;        OR
+    ///     var termelot = @as(Termelot, undefined);
     pub fn init(
+        self: *Self,
         allocator: *std.mem.allocator,
         config: Config,
         initial_buffer_size: ?Size,
-    ) !Termelot {
-        var result = Termelot{
-            .config = config,
-            .supported_features = undefined,
-            .key_callbacks = std.ArrayList(KeyCallback).init(allocator),
-            .mouse_callbacks = std.ArrayList(MouseCallback).init(allocator),
-            .screen_size = undefined,
-            .screen_buffer = undefined,
-            .backend = try Backend.init(allocator, config),
-        };
-        errdefer result.backend.deinit();
-
-        result.supported_features = result.backend.getSupportedFeatures();
-        // TODO: Fill initial screen size
-        // TODO: Instead of passing backend pointer, consider getting parent
-        //       pointer -> backend from inside the buffer struct.
-        result.screen_buffer = try Buffer.init(
-            &result.backend,
+    ) !void {
+        self.backend = try Backend.init(self, allocator, config);
+        errdefer self.backend.deinit();
+        self.config = config;
+        self.supported_features = self.backend.getSupportedFeatures();
+        self.key_callbacks = std.ArrayList(KeyCallback).init(allocator);
+        errdefer self.key_callbacks.deinit();
+        self.mouse_callbacks = std.ArrayList(MouseCallback).init(allocator);
+        errdefer self.mouse_callbacks.deinit();
+        self.screen_size = try result.backend.getScreenSize();
+        self.screen_buffer = try Buffer.init(
+            &self.backend,
             allocator,
             initial_buffer_size,
         );
         errdefer result.screen_buffer.deinit();
 
-        //TODO: Fill backend mainloop parameters
         try self.backend.start();
-
         return result;
     }
 
@@ -110,7 +106,36 @@ pub const Termelot = struct {
         self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();
+        self.key_callbacks.deinit();
+        self.mouse_callbacks.deinit();
     }
+
+    /// Set the Termelot-aware screen size. This does NOT resize the physical
+    /// terminal screen, and should not be called by users in most cases. This
+    /// is intended for use primarily by the backend.
+    pub fn setScreenSize(self: *Self, screen_size: Size) void {
+        self.screen_size = screen_size;
+    }
+
+    pub fn callKeyCallbacks(self: Self) void {}
+    pub fn registerKeyCallback(
+        self: *Self,
+        key_callback: KeyCallback,
+    ) !void {}
+    pub fn deregisterKeyCallback(
+        self: *Self,
+        key_callback: KeyCallback,
+    ) void {}
+
+    pub fn callMouseCallbacks(self: Self) void {}
+    pub fn registerMouseCallback(
+        self: *Self,
+        mouse_callback: MouseCallback,
+    ) !void {}
+    pub fn deregisterMouseCallback(
+        self: *Self,
+        mouse_callback: MouseCallback,
+    ) void {}
 
     // TODO: Wrap and expose buffer functions here
 };

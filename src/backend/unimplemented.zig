@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MIT
 // This file is part of the Termelot project under the MIT license.
 
-const termelot = @import("../termelot.zig");
+const termelot_import = @import("../termelot.zig");
+const Termelot = termelot_import.Termelot;
+const Config = termelot_import.Config;
 
 pub const Backend = struct {
     // Add desired backend fields here; the `Backend` struct's fields
@@ -11,7 +13,11 @@ pub const Backend = struct {
     const Self = @This();
 
     /// Initialize backend
-    pub fn init(allocator: *std.mem.allocator, config: termelot.Config) !Backend {
+    pub fn init(
+        termelot: *Termelot,
+        allocator: *std.mem.allocator,
+        config: Config,
+    ) !Backend {
         @compileError("Unimplemented");
     }
 
@@ -41,22 +47,24 @@ pub const Backend = struct {
     }
 
     /// Start event/signal handling loop, non-blocking immediate return.
-    pub fn start() !void {
+    pub fn start(self: *Self) !void {
+        // This function should call necessary functions for screen size
+        // update, key event callbacks, and mouse event callbacks.
         @compileError("Unimplemented");
-    } // TODO: Add arguments
+    }
 
     /// Stop event/signal handling loop.
-    pub fn stop() void {
+    pub fn stop(self: *Self) void {
         @compileError("Unimplemented");
     }
 
     /// Set terminal title.
-    pub fn setTitle(runes: []Rune) !void {
+    pub fn setTitle(self: *Self, runes: []Rune) !void {
         @compileError("Unimplemented");
     }
 
     /// Get screen size.
-    pub fn getScreenSize() !Position {
+    pub fn getScreenSize(self: *Self) !Position {
         // This function will only be called once on
         // startup, and then the size should be set
         // through the event handling loop.
@@ -64,28 +72,33 @@ pub const Backend = struct {
     }
 
     /// Get cursor position.
-    pub fn getCursorPosition() !Position {
+    pub fn getCursorPosition(self: *Self) !Position {
         @compileError("Unimplemented");
     }
 
     /// Set cursor position.
-    pub fn setCursorPosition(position: Position) !void {
+    pub fn setCursorPosition(self: *Self, position: Position) !void {
         @compileError("Unimplemented");
     }
 
     /// Get cursor visibility.
-    pub fn getCursorVisibility() !bool {
+    pub fn getCursorVisibility(self: *Self) !bool {
         @compileError("Unimplemented");
     }
 
     /// Set cursor visibility.
-    pub fn setCursorVisibility(visible: bool) !void {
+    pub fn setCursorVisibility(self: *Self, visible: bool) !void {
         @compileError("Unimplemented");
     }
 
     /// Write styled output to screen at position. Assumed that no newline
     /// or carriage return runes are provided.
-    pub fn write(position: Position, runes: []Rune, styles: []Style) !void {
+    pub fn write(
+        self: *Self,
+        position: Position,
+        runes: []Rune,
+        styles: []Style,
+    ) !void {
         @compileError("Unimplemented");
     }
 };
