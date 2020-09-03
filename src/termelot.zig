@@ -5,39 +5,12 @@
 
 const std = @import("std");
 
-const backend_import = @import("backend.zig").backend;
-const Backend = backend_import.Backend;
+pub const style = @import("style.zig");
+pub const event = @import("event.zig");
 
-const buffer_import = @import("buffer.zig");
-const Buffer = buffer_import.Buffer;
-
-const style_import = @import("style.zig");
-pub const Style = style_import.Style;
-pub const Decorations = style_import.Decorations;
-pub const Color = style_import.Color;
-pub const ColorType = style_import.ColorType;
-pub const ColorNamed16 = style_import.ColorNamed16;
-pub const ColorBit8 = style_import.ColorBit8;
-pub const ColorBit24 = style_import.ColorBit24;
-
-const rune_import = @import("rune.zig");
-pub const Rune = rune_import.Rune;
-
-const event_import = @import("event.zig");
-
-pub const KeyCallback = event_import.KeyCallback;
-pub const KeyEvent = event_import.KeyEvent;
-pub const KeyValue = event_import.KeyValue;
-pub const KeyValueType = event_import.KeyValueType;
-pub const KeyModifier = event_import.KeyModifier;
-pub const KeyValueFunction = event_import.KeyValueFunction;
-pub const KeyValueNavigation = event_import.KeyValueNavigation;
-pub const KeyValueEdit = event_import.KeyValueEdit;
-
-pub const MouseCallback = event_import.MouseCallback;
-pub const MouseEvent = event_import.MouseEvent;
-pub const MouseAction = event_import.MouseAction;
-pub const MouseButton = event_import.MouseButton;
+pub const Backend = @import("backend.zig").backend.Backend;
+pub const Buffer = @import("buffer.zig").Buffer;
+pub const Rune = @import("rune.zig").Rune;
 
 pub const Config = struct {
     // TODO
@@ -65,8 +38,8 @@ pub const Termelot = struct {
     config: Config,
     supported_features: SupportedFeatures,
     allocator: *std.mem.allocator,
-    key_callbacks: std.ArrayList(KeyCallback),
-    mouse_callbacks: std.ArrayList(MouseCallback),
+    key_callbacks: std.ArrayList(event.key.Callback),
+    mouse_callbacks: std.ArrayList(event.mouse.Callback),
     screen_size: Size,
     screen_buffer: Buffer,
     backend: Backend,
@@ -86,9 +59,9 @@ pub const Termelot = struct {
         errdefer self.backend.deinit();
         self.config = config;
         self.supported_features = self.backend.getSupportedFeatures();
-        self.key_callbacks = std.ArrayList(KeyCallback).init(allocator);
+        self.key_callbacks = std.ArrayList(event.key.Callback).init(allocator);
         errdefer self.key_callbacks.deinit();
-        self.mouse_callbacks = std.ArrayList(MouseCallback).init(allocator);
+        self.mouse_callbacks = std.ArrayList(event.mouse.Callback).init(allocator);
         errdefer self.mouse_callbacks.deinit();
         self.screen_size = try result.backend.getScreenSize();
         self.screen_buffer = try Buffer.init(
@@ -120,22 +93,56 @@ pub const Termelot = struct {
     pub fn callKeyCallbacks(self: Self) void {}
     pub fn registerKeyCallback(
         self: *Self,
-        key_callback: KeyCallback,
-    ) !void {}
+        key_callback: event.key.Callback,
+    ) !void {
+        for (self.key_callbacks.items) |callback| {
+            if (std.meta.eql(callback, key_callback)) {
+                return;
+            }
+        }
+        try self.key_callbacks.append(key_callback);
+    }
     pub fn deregisterKeyCallback(
         self: *Self,
-        key_callback: KeyCallback,
-    ) void {}
+        key_callback: event.key.Callback,
+    ) void {
+        var remove_index: usize = self.key_callbacks.items.len;
+        for (self.key_callbacks.items) |callback, index| {
+            if (std.meta.eql(callback, key_callback)) {
+                remove_index = index;
+                break;
+            }
+        }
+        if (remove_index < self.key_callbacks.items.len) {
+            _ = self.key_callbacks.orderedRemove(remove_index);
+        }
+    }
 
     pub fn callMouseCallbacks(self: Self) void {}
     pub fn registerMouseCallback(
         self: *Self,
-        mouse_callback: MouseCallback,
-    ) !void {}
+        mouse_callback: event.mouse.Callback,
+    ) !void {
+        for (self.mouse_callbacks.items) |callback| {
+            if (std.meta.eql(callback, mouse_callback)) {
+                return;
+            }
+        }
+        try self.mouse_callbacks.append(mouse_callback);
+    }
     pub fn deregisterMouseCallback(
         self: *Self,
-        mouse_callback: MouseCallback,
-    ) void {}
-
-    // TODO: Wrap and expose buffer functions here
+        mouse_callback: event.mouse.Callback,
+    ) void {
+        var remove_index: usize = self.mouse_callbacks.items.len;
+        for (self.mouse_callbacks.items) |callback, index| {
+            if (std.meta.eql(callback, mouse_callback)) {
+                remove_index = index;
+                break;
+            }
+        }
+        if (remove_index < self.mouse_callbacks.items.len) {
+            _ = self.mouse_callbacks.orderedRemove(remove_index);
+        }
+    }
 };
