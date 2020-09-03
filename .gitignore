@@ -7,6 +7,7 @@
 !README.md
 !LICENSE
 !CODE_OF_CONDUCT.md
+!CONTRIBUTING.md
 !.gitignore
 
 !**/*.zig
