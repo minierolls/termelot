@@ -19,12 +19,7 @@ const SupportedFeatures = termelot_import.SupportedFeatures;
 const Position = termelot_import.Position;
 const Size = termelot_import.Size;
 const Rune = termelot_import.Rune;
-const Style = termelot_import.style.Style;
-const Color = termelot_import.style.Color;
-const ColorType = termelot_import.style.ColorType;
-const ColorNamed16 = termelot_import.style.ColorNamed16;
-const ColorBit8 = termelot_import.style.ColorBit8;
-const ColorBit24 = termelot_import.style.ColorBit24;
+usingnamespace termelot_import.style;
 
 // TODO: Use "/dev/tty" if possible, instead of stdout/stdin
 pub const Backend = struct {
@@ -60,12 +55,24 @@ pub const Backend = struct {
 
     /// Retrieve supported features for this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
-        return SupportedFeatures{};
+        return SupportedFeatures{
+            .color_types = .{
+                .Named16 = true,
+                .Bit8 = true,
+                .Bit24 = true,
+            },
+            .decorations = Decorations{
+                .bold = true,
+                .italic = true,
+                .underline = true,
+                .blinking = false,
+            },
+        };
     }
 
     /// Retrieve raw mode status.
     pub fn getRawMode(self: *Self) !bool {
-        var current_termios = undefined;
+        var current_termios: c.termios = undefined;
         if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
             return error.BackendError;
         }
@@ -80,7 +87,7 @@ pub const Backend = struct {
 
     /// Enter/exit raw mode.
     pub fn setRawMode(self: *Self, enabled: bool) !void {
-        var current_termios = undefined;
+        var current_termios: c.termios = undefined;
         if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
             return error.BackendError;
         }
