@@ -35,7 +35,7 @@ pub fn main() !void {
     try term.init(&gpa.allocator, config, null);
     defer _ = term.deinit();
 
-    try term.screen_buffer.setCell(
+    term.setCell(
         Position{ .row = 0, .col = 0 },
         Cell{
             .rune = 'X',
@@ -51,12 +51,12 @@ pub fn main() !void {
             },
         },
     );
-    try term.screen_buffer.setCell(
+    term.setCell(
         Position{ .row = 0, .col = 1 },
         Cell{
             .rune = 'X',
-            .style = tcon.screen_buffer.default_style,
+            .style = term.screen_buffer.default_style,
         },
     );
-    try tcon.screen_buffer.draw(term.screen_size);
+    try term.drawScreen();
 }

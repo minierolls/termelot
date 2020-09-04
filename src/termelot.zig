@@ -6,6 +6,7 @@
 const std = @import("std");
 
 pub const style = @import("style.zig");
+usingnamespace style;
 pub const event = @import("event.zig");
 
 pub const Backend = @import("backend.zig").backend.Backend;
@@ -57,14 +58,14 @@ pub const Termelot = struct {
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {
-        self.backend = try Backend.init(self, allocator, config);
-        errdefer self.backend.deinit();
-        self.config = config;
-        self.supported_features = try self.backend.getSupportedFeatures();
         self.key_callbacks = std.ArrayList(event.key.Callback).init(allocator);
         errdefer self.key_callbacks.deinit();
         self.mouse_callbacks = std.ArrayList(event.mouse.Callback).init(allocator);
         errdefer self.mouse_callbacks.deinit();
+        self.backend = try Backend.init(self, allocator, config);
+        errdefer self.backend.deinit();
+        self.config = config;
+        self.supported_features = try self.backend.getSupportedFeatures();
         self.cursor_position = try self.backend.getCursorPosition();
         self.cursor_visible = try self.backend.getCursorVisibility();
         self.screen_size = try self.backend.getScreenSize();
@@ -76,7 +77,6 @@ pub const Termelot = struct {
         errdefer self.screen_buffer.deinit();
 
         try self.backend.start();
-        return result;
     }
 
     pub fn deinit(self: *Self) void {
@@ -164,13 +164,13 @@ pub const Termelot = struct {
         self.cursor_visible = visible;
     }
 
-    pub fn drawScreen(self: Self) !void {
+    pub fn drawScreen(self: *Self) !void {
         const orig_cursor_position = self.cursor_position;
         try self.screen_buffer.draw(self.screen_size);
         try self.setCursorPosition(orig_cursor_position);
     }
 
-    pub fn clearScreen(self: Self) !void {
+    pub fn clearScreen(self: *Self) !void {
         const orig_cursor_position = self.cursor_position;
         try self.screen_buffer.clear();
         try self.setCursorPosition(orig_cursor_position);
@@ -189,16 +189,16 @@ pub const Termelot = struct {
         return self.screen_buffer.getCells(position, length, result);
     }
 
-    pub fn setCell(self: Self, position: Position, new_cell: Cell) void {
+    pub fn setCell(self: *Self, position: Position, new_cell: Cell) void {
         self.screen_buffer.setCell(position, new_cell);
     }
 
-    pub fn setCells(self: Self, position: Position, new_cells: []Cell) void {
+    pub fn setCells(self: *Self, position: Position, new_cells: []Cell) void {
         self.screen_buffer.setCells(position, new_cells);
     }
 
     pub fn fillCells(
-        self: Self,
+        self: *Self,
         position: Position,
         length: u16,
         new_cell: Cell,

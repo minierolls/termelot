@@ -77,12 +77,12 @@ pub const ColorBit24 = packed struct {
     }
 
     pub fn red(self: Self) u8 {
-        return @intCast(self.code >> 16);
+        return @intCast(u8, self.code >> 16);
     }
     pub fn green(self: Self) u8 {
-        return @intCast((self.code >> 8) & 255);
+        return @intCast(u8, (self.code >> 8) & 255);
     }
     pub fn blue(self: Self) u8 {
-        return @intCast(self.code & 255);
+        return @intCast(u8, self.code & 255);
     }
 };

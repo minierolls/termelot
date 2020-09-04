@@ -10,7 +10,7 @@ const Size = termelot.Size;
 const Position = termelot.Position;
 const Cell = termelot.Cell;
 const Rune = termelot.Rune;
-const Style = termelot.style.Style;
+usingnamespace termelot.style;
 const Backend = termelot.Backend;
 
 const default_size = Size{ .rows = 200, .cols = 300 };
@@ -41,8 +41,8 @@ pub const Buffer = struct {
             .size = initial_size orelse default_size,
             .default_rune = ' ',
             .default_style = Style{
-                .fg_color = Color{ .Default = {} },
-                .bg_color = Color{ .Default = {} },
+                .fg_color = Color.Default,
+                .bg_color = Color.Default,
                 .decorations = Decorations{
                     .bold = false,
                     .italic = false,
@@ -64,8 +64,8 @@ pub const Buffer = struct {
             @as(u32, result.size.cols);
         try result.rune_buffer.ensureCapacity(buffer_length);
         try result.style_buffer.ensureCapacity(buffer_length);
-        result.rune_buffer.expandToCapacity();
-        result.style_buffer.expandToCapacity();
+        try result.rune_buffer.resize(buffer_length);
+        try result.style_buffer.resize(buffer_length);
 
         std.mem.set(
             Rune,
@@ -225,9 +225,9 @@ pub const Buffer = struct {
             return self.drawForce(screen_size);
         }
 
+        const b_len = @as(u32, self.size.rows) * @as(u32, self.size.cols);
         // Sanity checks
         {
-            const b_len = @as(u32, self.size.rows) * @as(u32, self.size.cols);
             std.debug.assert(self.rune_buffer.items.len == b_len);
             std.debug.assert(self.style_buffer.items.len == b_len);
             std.debug.assert(self.old_rune_buffer.items.len == b_len);
@@ -275,8 +275,8 @@ pub const Buffer = struct {
                 if (diff_origin) |i| {
                     try self.backend.write(
                         Position{ .row = row_index, .col = col_index },
-                        self.rune_buffer.items[i..b_index],
-                        self.style_buffer.items[i..b_index],
+                        self.rune_buffer.items[i..b_len],
+                        self.style_buffer.items[i..b_len],
                     );
                 }
             }
@@ -312,7 +312,7 @@ pub const Buffer = struct {
             while (row_index < self.size.rows) : (row_index += 1) {
                 const row_start: u32 = @as(u32, row_index) *
                     @as(u32, self.size.cols);
-                const row_end: u32 = row_start + @as(u32, self.size.cols);
+                const row_end: u32 = row_start + @as(u32, screen_size.cols);
                 try self.backend.write(
                     Position{ .row = row_index, .col = 0 },
                     self.rune_buffer.items[row_start..row_end],
