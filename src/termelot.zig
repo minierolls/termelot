@@ -40,6 +40,8 @@ pub const Termelot = struct {
     allocator: *std.mem.Allocator,
     key_callbacks: std.ArrayList(event.key.Callback),
     mouse_callbacks: std.ArrayList(event.mouse.Callback),
+    cursor_position: Position,
+    cursor_visible: bool,
     screen_size: Size,
     screen_buffer: Buffer,
     backend: Backend,
@@ -63,13 +65,15 @@ pub const Termelot = struct {
         errdefer self.key_callbacks.deinit();
         self.mouse_callbacks = std.ArrayList(event.mouse.Callback).init(allocator);
         errdefer self.mouse_callbacks.deinit();
-        self.screen_size = try result.backend.getScreenSize();
+        self.cursor_position = try self.backend.getCursorPosition();
+        self.cursor_visible = try self.backend.getCursorVisibility();
+        self.screen_size = try self.backend.getScreenSize();
         self.screen_buffer = try Buffer.init(
             &self.backend,
             allocator,
             initial_buffer_size,
         );
-        errdefer result.screen_buffer.deinit();
+        errdefer self.screen_buffer.deinit();
 
         try self.backend.start();
         return result;
@@ -144,5 +148,61 @@ pub const Termelot = struct {
         if (remove_index < self.mouse_callbacks.items.len) {
             _ = self.mouse_callbacks.orderedRemove(remove_index);
         }
+    }
+
+    pub fn setTitle(self: Self, title: []Rune) !void {
+        try self.backend.setTitle(title);
+    }
+
+    pub fn setCursorPosition(self: *Self, position: Position) !void {
+        try self.backend.setCursorPosition(position);
+        self.cursor_position = position;
+    }
+
+    pub fn setCursorVisibility(self: *Self, visible: bool) !void {
+        try self.backend.setCursorVisibility(visible);
+        self.cursor_visible = visible;
+    }
+
+    pub fn drawScreen(self: Self) !void {
+        const orig_cursor_position = self.cursor_position;
+        try self.screen_buffer.draw(self.screen_size);
+        try self.setCursorPosition(orig_cursor_position);
+    }
+
+    pub fn clearScreen(self: Self) !void {
+        const orig_cursor_position = self.cursor_position;
+        try self.screen_buffer.clear();
+        try self.setCursorPosition(orig_cursor_position);
+    }
+
+    pub fn getCell(self: Self, position: Position) ?Cell {
+        return self.screen_buffer.getCell(position);
+    }
+
+    pub fn getCells(
+        self: Self,
+        position: Position,
+        length: u16,
+        result: *[length]Cell,
+    ) ?u16 {
+        return self.screen_buffer.getCells(position, length, result);
+    }
+
+    pub fn setCell(self: Self, position: Position, new_cell: Cell) void {
+        self.screen_buffer.setCell(position, new_cell);
+    }
+
+    pub fn setCells(self: Self, position: Position, new_cells: []Cell) void {
+        self.screen_buffer.setCells(position, new_cells);
+    }
+
+    pub fn fillCells(
+        self: Self,
+        position: Position,
+        length: u16,
+        new_cell: Cell,
+    ) void {
+        self.screen_buffer.fillCells(position, length, new_cell);
     }
 };
