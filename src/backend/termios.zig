@@ -60,7 +60,7 @@ pub const Backend = struct {
 
     /// Retrieve supported features for this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
-        @compileError("Unimplemented");
+        return SupportedFeatures{};
     }
 
     /// Retrieve raw mode status.
@@ -126,12 +126,12 @@ pub const Backend = struct {
     pub fn start(self: *Self) !void {
         // This function should call necessary functions for screen size
         // update, key event callbacks, and mouse event callbacks.
-        @compileError("Unimplemented");
+        // @compileError("Unimplemented");
     }
 
     /// Stop event/signal handling loop.
     pub fn stop(self: *Self) void {
-        @compileError("Unimplemented");
+        // @compileError("Unimplemented");
     }
 
     /// Set terminal title.
@@ -157,7 +157,11 @@ pub const Backend = struct {
 
     /// Get cursor position.
     pub fn getCursorPosition(self: *Self) !Position {
-        @compileError("Unimplemented");
+        // TODO: Old cursor position function relies on raw mode
+        return Position{
+            .row = 0,
+            .col = 0,
+        };
     }
 
     /// Set cursor position.
@@ -198,61 +202,137 @@ pub const Backend = struct {
             _ = try writer.write("\x1b[4m");
         }
 
-        _ = try writer.print(switch (style.fg_color) {
-            ColorType.Default => "\x1b[39m",
-            ColorType.Named16 => |v| switch (v) {
-                ColorNamed16.Black => "\x1b[30m",
-                ColorNamed16.Red => "\x1b[31m",
-                ColorNamed16.Green => "\x1b[32m",
-                ColorNamed16.Yellow => "\x1b[33m",
-                ColorNamed16.Blue => "\x1b[34m",
-                ColorNamed16.Magenta => "\x1b[35m",
-                ColorNamed16.Cyan => "\x1b[36m",
-                ColorNamed16.White => "\x1b[37m",
-                ColorNamed16.BrightBlack => "\x1b[90m",
-                ColorNamed16.BrightRed => "\x1b[91m",
-                ColorNamed16.BrightGreen => "\x1b[92m",
-                ColorNamed16.BrightYellow => "\x1b[93m",
-                ColorNamed16.BrightBlue => "\x1b[94m",
-                ColorNamed16.BrightMagenta => "\x1b[95m",
-                ColorNamed16.BrightCyan => "\x1b[96m",
-                ColorNamed16.BrightWhite => "\x1b[97m",
+        switch (style.fg_color) {
+            ColorType.Default => {
+                _ = try writer.write("\x1b[39m");
             },
-            ColorType.Bit8 => "\x1b[38;5;{}m",
-            ColorType.Bit24 => "\x1b[38;2;{};{};{}m",
-        }, switch (style.fg_color) {
-            ColorType.Bit8 => |v| .{v.code},
-            ColorType.Bit24 => |v| .{ v.red(), v.green(), v.blue() },
-            else => .{},
-        });
+            ColorType.Named16 => |v| switch (v) {
+                ColorNamed16.Black => {
+                    _ = try writer.write("\x1b[30m");
+                },
+                ColorNamed16.Red => {
+                    _ = try writer.write("\x1b[31m");
+                },
+                ColorNamed16.Green => {
+                    _ = try writer.write("\x1b[32m");
+                },
+                ColorNamed16.Yellow => {
+                    _ = try writer.write("\x1b[33m");
+                },
+                ColorNamed16.Blue => {
+                    _ = try writer.write("\x1b[34m");
+                },
+                ColorNamed16.Magenta => {
+                    _ = try writer.write("\x1b[35m");
+                },
+                ColorNamed16.Cyan => {
+                    _ = try writer.write("\x1b[36m");
+                },
+                ColorNamed16.White => {
+                    _ = try writer.write("\x1b[37m");
+                },
+                ColorNamed16.BrightBlack => {
+                    _ = try writer.write("\x1b[90m");
+                },
+                ColorNamed16.BrightRed => {
+                    _ = try writer.write("\x1b[91m");
+                },
+                ColorNamed16.BrightGreen => {
+                    _ = try writer.write("\x1b[92m");
+                },
+                ColorNamed16.BrightYellow => {
+                    _ = try writer.write("\x1b[93m");
+                },
+                ColorNamed16.BrightBlue => {
+                    _ = try writer.write("\x1b[94m");
+                },
+                ColorNamed16.BrightMagenta => {
+                    _ = try writer.write("\x1b[95m");
+                },
+                ColorNamed16.BrightCyan => {
+                    _ = try writer.write("\x1b[96m");
+                },
+                ColorNamed16.BrightWhite => {
+                    _ = try writer.write("\x1b[97m");
+                },
+            },
+            ColorType.Bit8 => |v| {
+                _ = try writer.print("\x1b[38;5;{}m", .{v.code});
+            },
+            ColorType.Bit24 => |v| {
+                _ = try writer.print("\x1b[38;2;{};{};{}m", .{
+                    v.red(),
+                    v.blue(),
+                    v.green(),
+                });
+            },
+        }
 
-        _ = try writer.print(switch (style.bg_color) {
-            ColorType.Default => "\x1b[49m",
-            ColorType.Named16 => |v| switch (v) {
-                ColorNamed16.Black => "\x1b[40m",
-                ColorNamed16.Red => "\x1b[41m",
-                ColorNamed16.Green => "\x1b[42m",
-                ColorNamed16.Yellow => "\x1b[43m",
-                ColorNamed16.Blue => "\x1b[44m",
-                ColorNamed16.Magenta => "\x1b[45m",
-                ColorNamed16.Cyan => "\x1b[46m",
-                ColorNamed16.White => "\x1b[47m",
-                ColorNamed16.BrightBlack => "\x1b[100m",
-                ColorNamed16.BrightRed => "\x1b[101m",
-                ColorNamed16.BrightGreen => "\x1b[102m",
-                ColorNamed16.BrightYellow => "\x1b[103m",
-                ColorNamed16.BrightBlue => "\x1b[104m",
-                ColorNamed16.BrightMagenta => "\x1b[105m",
-                ColorNamed16.BrightCyan => "\x1b[106m",
-                ColorNamed16.BrightWhite => "\x1b[107m",
+        switch (style.fg_color) {
+            ColorType.Default => {
+                _ = try writer.write("\x1b[49m");
             },
-            ColorType.Bit8 => "\x1b[48;5;{}m",
-            ColorType.Bit24 => "\x1b[48;2;{};{};{}m",
-        }, switch (style.bg_color) {
-            ColorType.Bit8 => |v| .{v.code},
-            ColorType.Bit24 => |v| .{ v.red(), v.green(), v.blue() },
-            else => .{},
-        });
+            ColorType.Named16 => |v| switch (v) {
+                ColorNamed16.Black => {
+                    _ = try writer.write("\x1b[40m");
+                },
+                ColorNamed16.Red => {
+                    _ = try writer.write("\x1b[41m");
+                },
+                ColorNamed16.Green => {
+                    _ = try writer.write("\x1b[42m");
+                },
+                ColorNamed16.Yellow => {
+                    _ = try writer.write("\x1b[43m");
+                },
+                ColorNamed16.Blue => {
+                    _ = try writer.write("\x1b[44m");
+                },
+                ColorNamed16.Magenta => {
+                    _ = try writer.write("\x1b[45m");
+                },
+                ColorNamed16.Cyan => {
+                    _ = try writer.write("\x1b[46m");
+                },
+                ColorNamed16.White => {
+                    _ = try writer.write("\x1b[47m");
+                },
+                ColorNamed16.BrightBlack => {
+                    _ = try writer.write("\x1b[100m");
+                },
+                ColorNamed16.BrightRed => {
+                    _ = try writer.write("\x1b[101m");
+                },
+                ColorNamed16.BrightGreen => {
+                    _ = try writer.write("\x1b[102m");
+                },
+                ColorNamed16.BrightYellow => {
+                    _ = try writer.write("\x1b[103m");
+                },
+                ColorNamed16.BrightBlue => {
+                    _ = try writer.write("\x1b[104m");
+                },
+                ColorNamed16.BrightMagenta => {
+                    _ = try writer.write("\x1b[105m");
+                },
+                ColorNamed16.BrightCyan => {
+                    _ = try writer.write("\x1b[106m");
+                },
+                ColorNamed16.BrightWhite => {
+                    _ = try writer.write("\x1b[107m");
+                },
+            },
+            ColorType.Bit8 => |v| {
+                _ = try writer.print("\x1b[48;5;{}m", .{v.code});
+            },
+            ColorType.Bit24 => |v| {
+                _ = try writer.print("\x1b[48;2;{};{};{}m", .{
+                    v.red(),
+                    v.blue(),
+                    v.green(),
+                });
+            },
+        }
     }
 
     /// Write styled output to screen at position. Assumed that no newline
@@ -269,6 +349,8 @@ pub const Backend = struct {
         if (runes.len == 0) {
             return;
         }
+
+        try self.setCursorPosition(position);
 
         var orig_style_index: usize = 0;
         try writeStyle(styles[0]);
