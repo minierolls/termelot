@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 // This file is part of the Termelot project under the MIT license.
 
-const termelot = @import("termelot.zig");
+const termelot = @import("../termelot.zig");
 const Position = termelot.Position;
 
 pub const Callback = struct {
@@ -18,7 +18,7 @@ pub const Callback = struct {
     }
 };
 
-pub const Event = enum {
+pub const Event = struct {
     position: Position,
     time: u32, // TODO
     action: ?Action,

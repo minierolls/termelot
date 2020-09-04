@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 // This file is part of the Termelot project under the MIT license.
 
+const std = @import("std");
+
 const termelot_import = @import("../termelot.zig");
 const Termelot = termelot_import.Termelot;
 const Config = termelot_import.Config;
@@ -15,7 +17,7 @@ pub const Backend = struct {
     /// Initialize backend
     pub fn init(
         termelot: *Termelot,
-        allocator: *std.mem.allocator,
+        allocator: *std.mem.Allocator,
         config: Config,
     ) !Backend {
         @compileError("Unimplemented");

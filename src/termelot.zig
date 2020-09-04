@@ -37,7 +37,7 @@ pub const Cell = struct {
 pub const Termelot = struct {
     config: Config,
     supported_features: SupportedFeatures,
-    allocator: *std.mem.allocator,
+    allocator: *std.mem.Allocator,
     key_callbacks: std.ArrayList(event.key.Callback),
     mouse_callbacks: std.ArrayList(event.mouse.Callback),
     screen_size: Size,
@@ -51,7 +51,7 @@ pub const Termelot = struct {
     ///     var termelot = @as(Termelot, undefined);
     pub fn init(
         self: *Self,
-        allocator: *std.mem.allocator,
+        allocator: *std.mem.Allocator,
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {

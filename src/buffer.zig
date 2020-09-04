@@ -9,12 +9,9 @@ const termelot = @import("termelot.zig");
 const Size = termelot.Size;
 const Position = termelot.Position;
 const Cell = termelot.Cell;
-
-const rune = @import("rune");
-const Rune = rune.Rune;
-
-const style = @import("style");
-const Style = style.Style;
+const Rune = termelot.Rune;
+const Style = termelot.style.Style;
+const Backend = termelot.Backend;
 
 const default_size = Size{ .rows = 200, .cols = 300 };
 
@@ -35,7 +32,7 @@ pub const Buffer = struct {
 
     pub fn init(
         backend: *Backend,
-        allocator: *std.mem.allocator,
+        allocator: *std.mem.Allocator,
         initial_size: ?Size,
     ) !Buffer {
         var result = Buffer{

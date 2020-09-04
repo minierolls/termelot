@@ -19,8 +19,8 @@ pub const Decorations = packed struct {
 pub const Color = union(ColorType) {
     Default: u0,
     Named16: ColorNamed16,
-    Bit8: Bit8,
-    Bit24: Bit24,
+    Bit8: ColorBit8,
+    Bit24: ColorBit24,
 };
 
 pub const ColorType = enum {
