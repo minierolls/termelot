@@ -269,8 +269,8 @@ pub const Backend = struct {
             ColorType.Bit24 => |v| {
                 _ = try writer.print("\x1b[38;2;{};{};{}m", .{
                     v.red(),
-                    v.blue(),
                     v.green(),
+                    v.blue(),
                 });
             },
         }
@@ -335,8 +335,8 @@ pub const Backend = struct {
             ColorType.Bit24 => |v| {
                 _ = try writer.print("\x1b[48;2;{};{};{}m", .{
                     v.red(),
-                    v.blue(),
                     v.green(),
+                    v.blue(),
                 });
             },
         }
