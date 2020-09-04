@@ -8,6 +8,10 @@ const std = @import("std");
 const termelot_import = @import("../termelot.zig");
 const Termelot = termelot_import.Termelot;
 const Config = termelot_import.Config;
+const Position = termelot_import.Position;
+const Size = termelot_import.Size;
+const Rune = termelot_import.Rune;
+const Style = termelot_import.style.Style;
 
 pub const Backend = struct {
     // Add desired backend fields here; the `Backend` struct's fields
@@ -66,7 +70,7 @@ pub const Backend = struct {
     }
 
     /// Get screen size.
-    pub fn getScreenSize(self: *Self) !Position {
+    pub fn getScreenSize(self: *Self) !Size {
         // This function will only be called once on
         // startup, and then the size should be set
         // through the event handling loop.
