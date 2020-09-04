@@ -8,6 +8,7 @@ const std = @import("std");
 const termelot_import = @import("../termelot.zig");
 const Termelot = termelot_import.Termelot;
 const Config = termelot_import.Config;
+const SupportedFeatures = termelot_import.SupportedFeatures;
 const Position = termelot_import.Position;
 const Size = termelot_import.Size;
 const Rune = termelot_import.Rune;
@@ -29,6 +30,11 @@ pub const Backend = struct {
 
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
+        @compileError("Unimplemented");
+    }
+
+    /// Retrieve supported features for this backend.
+    pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
         @compileError("Unimplemented");
     }
 

@@ -60,7 +60,7 @@ pub const Termelot = struct {
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
-        self.supported_features = self.backend.getSupportedFeatures();
+        self.supported_features = try self.backend.getSupportedFeatures();
         self.key_callbacks = std.ArrayList(event.key.Callback).init(allocator);
         errdefer self.key_callbacks.deinit();
         self.mouse_callbacks = std.ArrayList(event.mouse.Callback).init(allocator);
