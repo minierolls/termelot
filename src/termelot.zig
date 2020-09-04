@@ -14,10 +14,16 @@ pub const Buffer = @import("buffer.zig").Buffer;
 pub const Rune = @import("rune.zig").Rune;
 
 pub const Config = struct {
-    // TODO
+    raw_mode: bool,
+    alternate_screen: bool,
 };
 pub const SupportedFeatures = struct {
-    // TODO
+    color_types: struct {
+        Named16: bool,
+        Bit8: bool,
+        Bit24: bool,
+    },
+    decorations: Decorations,
 };
 
 pub const Size = packed struct {
@@ -65,6 +71,12 @@ pub const Termelot = struct {
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
+        if (config.raw_mode) {
+            try self.backend.setRawMode(true);
+        }
+        if (config.alternate_screen) {
+            try self.backend.setAlternateScreen(true);
+        }
         self.supported_features = try self.backend.getSupportedFeatures();
         self.cursor_position = try self.backend.getCursorPosition();
         self.cursor_visible = try self.backend.getCursorVisibility();
@@ -80,6 +92,12 @@ pub const Termelot = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        if (self.config.alternate_screen) {
+            self.backend.setAlternateScreen(false) catch {};
+        }
+        if (self.config.raw_mode) {
+            self.backend.setRawMode(false) catch {};
+        }
         self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();

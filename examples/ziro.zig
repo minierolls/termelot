@@ -27,8 +27,8 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     const config = termelot.Config{
-        // .raw_mode = true,
-        // .alternate_screen = true,
+        .raw_mode = true,
+        .alternate_screen = true,
     };
 
     var term: termelot.Termelot = undefined;
