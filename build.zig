@@ -44,4 +44,16 @@ pub fn build(b: *Builder) !void {
 
     const ziro_run_step = b.step("ziro", "Run the `ziro` example");
     ziro_run_step.dependOn(&ziro_run_cmd.step);
+
+    var donut = b.addExecutable("donut", "examples/donut.zig");
+    donut.setBuildMode(mode);
+    donut.setTarget(target);
+    donut.setOutputDir(examples_output_path);
+    donut.addPackagePath("termelot", "src/termelot.zig");
+    donut.linkLibC();
+
+    const donut_run_cmd = donut.run();
+
+    const donut_run_step = b.step("donut", "Run the `donut` example");
+    donut_run_step.dependOn(&donut_run_cmd.step);
 }
