@@ -213,56 +213,24 @@ pub const Backend = struct {
             ColorType.Default => {
                 _ = try writer.write("\x1b[39m");
             },
-            ColorType.Named16 => |v| switch (v) {
-                ColorNamed16.Black => {
-                    _ = try writer.write("\x1b[30m");
-                },
-                ColorNamed16.Red => {
-                    _ = try writer.write("\x1b[31m");
-                },
-                ColorNamed16.Green => {
-                    _ = try writer.write("\x1b[32m");
-                },
-                ColorNamed16.Yellow => {
-                    _ = try writer.write("\x1b[33m");
-                },
-                ColorNamed16.Blue => {
-                    _ = try writer.write("\x1b[34m");
-                },
-                ColorNamed16.Magenta => {
-                    _ = try writer.write("\x1b[35m");
-                },
-                ColorNamed16.Cyan => {
-                    _ = try writer.write("\x1b[36m");
-                },
-                ColorNamed16.White => {
-                    _ = try writer.write("\x1b[37m");
-                },
-                ColorNamed16.BrightBlack => {
-                    _ = try writer.write("\x1b[90m");
-                },
-                ColorNamed16.BrightRed => {
-                    _ = try writer.write("\x1b[91m");
-                },
-                ColorNamed16.BrightGreen => {
-                    _ = try writer.write("\x1b[92m");
-                },
-                ColorNamed16.BrightYellow => {
-                    _ = try writer.write("\x1b[93m");
-                },
-                ColorNamed16.BrightBlue => {
-                    _ = try writer.write("\x1b[94m");
-                },
-                ColorNamed16.BrightMagenta => {
-                    _ = try writer.write("\x1b[95m");
-                },
-                ColorNamed16.BrightCyan => {
-                    _ = try writer.write("\x1b[96m");
-                },
-                ColorNamed16.BrightWhite => {
-                    _ = try writer.write("\x1b[97m");
-                },
-            },
+            ColorType.Named16 => |v| _ = try writer.write(switch (v) {
+                ColorNamed16.Black => "\x1b[30m",
+                ColorNamed16.Red => "\x1b[31m",
+                ColorNamed16.Green => "\x1b[32m",
+                ColorNamed16.Yellow => "\x1b[33m",
+                ColorNamed16.Blue => "\x1b[34m",
+                ColorNamed16.Magenta => "\x1b[35m",
+                ColorNamed16.Cyan => "\x1b[36m",
+                ColorNamed16.White => "\x1b[37m",
+                ColorNamed16.BrightBlack => "\x1b[90m",
+                ColorNamed16.BrightRed => "\x1b[91m",
+                ColorNamed16.BrightGreen => "\x1b[92m",
+                ColorNamed16.BrightYellow => "\x1b[93m",
+                ColorNamed16.BrightBlue => "\x1b[94m",
+                ColorNamed16.BrightMagenta => "\x1b[95m",
+                ColorNamed16.BrightCyan => "\x1b[96m",
+                ColorNamed16.BrightWhite => "\x1b[97m",
+            }),
             ColorType.Bit8 => |v| {
                 _ = try writer.print("\x1b[38;5;{}m", .{v.code});
             },
@@ -275,60 +243,28 @@ pub const Backend = struct {
             },
         }
 
-        switch (style.fg_color) {
+        switch (style.bg_color) {
             ColorType.Default => {
                 _ = try writer.write("\x1b[49m");
             },
-            ColorType.Named16 => |v| switch (v) {
-                ColorNamed16.Black => {
-                    _ = try writer.write("\x1b[40m");
-                },
-                ColorNamed16.Red => {
-                    _ = try writer.write("\x1b[41m");
-                },
-                ColorNamed16.Green => {
-                    _ = try writer.write("\x1b[42m");
-                },
-                ColorNamed16.Yellow => {
-                    _ = try writer.write("\x1b[43m");
-                },
-                ColorNamed16.Blue => {
-                    _ = try writer.write("\x1b[44m");
-                },
-                ColorNamed16.Magenta => {
-                    _ = try writer.write("\x1b[45m");
-                },
-                ColorNamed16.Cyan => {
-                    _ = try writer.write("\x1b[46m");
-                },
-                ColorNamed16.White => {
-                    _ = try writer.write("\x1b[47m");
-                },
-                ColorNamed16.BrightBlack => {
-                    _ = try writer.write("\x1b[100m");
-                },
-                ColorNamed16.BrightRed => {
-                    _ = try writer.write("\x1b[101m");
-                },
-                ColorNamed16.BrightGreen => {
-                    _ = try writer.write("\x1b[102m");
-                },
-                ColorNamed16.BrightYellow => {
-                    _ = try writer.write("\x1b[103m");
-                },
-                ColorNamed16.BrightBlue => {
-                    _ = try writer.write("\x1b[104m");
-                },
-                ColorNamed16.BrightMagenta => {
-                    _ = try writer.write("\x1b[105m");
-                },
-                ColorNamed16.BrightCyan => {
-                    _ = try writer.write("\x1b[106m");
-                },
-                ColorNamed16.BrightWhite => {
-                    _ = try writer.write("\x1b[107m");
-                },
-            },
+            ColorType.Named16 => |v| _ = try writer.write(switch (v) {
+                ColorNamed16.Black => "\x1b[40m",
+                ColorNamed16.Red => "\x1b[41m",
+                ColorNamed16.Green => "\x1b[42m",
+                ColorNamed16.Yellow => "\x1b[43m",
+                ColorNamed16.Blue => "\x1b[44m",
+                ColorNamed16.Magenta => "\x1b[45m",
+                ColorNamed16.Cyan => "\x1b[46m",
+                ColorNamed16.White => "\x1b[47m",
+                ColorNamed16.BrightBlack => "\x1b[100m",
+                ColorNamed16.BrightRed => "\x1b[101m",
+                ColorNamed16.BrightGreen => "\x1b[102m",
+                ColorNamed16.BrightYellow => "\x1b[103m",
+                ColorNamed16.BrightBlue => "\x1b[104m",
+                ColorNamed16.BrightMagenta => "\x1b[105m",
+                ColorNamed16.BrightCyan => "\x1b[106m",
+                ColorNamed16.BrightWhite => "\x1b[107m",
+            }),
             ColorType.Bit8 => |v| {
                 _ = try writer.print("\x1b[48;5;{}m", .{v.code});
             },
