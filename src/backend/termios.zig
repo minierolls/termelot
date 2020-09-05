@@ -68,7 +68,7 @@ pub const Backend = struct {
                 .bold = true,
                 .italic = true,
                 .underline = true,
-                .blinking = false,
+                .blinking = true,
             },
         };
     }
@@ -145,8 +145,8 @@ pub const Backend = struct {
     }
 
     /// Set terminal title.
-    pub fn setTitle(self: *Self, runes: []Rune) !void {
-        @compileError("Unimplemented");
+    pub fn setTitle(self: *Self, runes: []const Rune) !void {
+        _ = try stdout.writer().print("\x1b]0;{}\x07", .{runes});
     }
 
     /// Get screen size.
@@ -211,6 +211,9 @@ pub const Backend = struct {
         }
         if (style.decorations.underline) {
             _ = try writer.write("\x1b[4m");
+        }
+        if (style.decorations.blinking) {
+            _ = try writer.write("\x1b[5m");
         }
 
         switch (style.fg_color) {
