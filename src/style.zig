@@ -68,11 +68,11 @@ pub const ColorBit24 = packed struct {
         return ColorBit24{ .code = hex };
     }
 
-    pub fn initRGB(red: u8, green: u8, blue: u8) ColorBit24 {
+    pub fn initRGB(red_val: u8, green_val: u8, blue_val: u8) ColorBit24 {
         var code: u24 = 0;
-        code |= blue;
-        code |= @as(u16, green) << 8;
-        code |= @as(u24, red) << 16;
+        code |= blue_val;
+        code |= @as(u16, green_val) << 8;
+        code |= @as(u24, red_val) << 16;
         return ColorBit24{ .code = code };
     }
 
