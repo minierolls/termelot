@@ -26,6 +26,7 @@ pub const Backend = struct {
     orig_termios: c.termios,
     alternate: bool,
     cursor_visible: bool,
+    cursor_position: Position,
 
     const Self = @This();
 
@@ -39,11 +40,13 @@ pub const Backend = struct {
             .orig_termios = undefined,
             .alternate = false,
             .cursor_visible = false,
+            .cursor_position = undefined,
         };
 
         if (c.tcgetattr(stdin.handle, &result.orig_termios) < 0) {
             return error.BackendError;
         }
+        try result.setCursorPosition(Position{ .row = 0, .col = 0 });
 
         return result;
     }
@@ -164,11 +167,11 @@ pub const Backend = struct {
 
     /// Get cursor position.
     pub fn getCursorPosition(self: *Self) !Position {
-        // TODO: Old cursor position function relies on raw mode
-        return Position{
-            .row = 0,
-            .col = 0,
-        };
+        // Querying for cursor position is unfortunately not supported on
+        // *many* terminals. Instead, we should keep track of our own
+        // representation; sadly, this is not robust against external
+        // (outside of Termelot) interactions with the terminal.
+        return self.cursor_position;
     }
 
     /// Set cursor position.
@@ -177,6 +180,7 @@ pub const Backend = struct {
             "\x1b[{};{}H",
             .{ position.row + 1, position.col + 1 },
         );
+        self.cursor_position = position;
     }
 
     /// Get cursor visibility.
