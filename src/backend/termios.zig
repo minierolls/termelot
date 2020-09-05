@@ -21,9 +21,102 @@ const Size = termelot_import.Size;
 const Rune = termelot_import.Rune;
 usingnamespace termelot_import.style;
 
+fn ioctl(fd: std.os.fd_t, request: u32, comptime ResT: type) !ResT {
+    var res: ResT = undefined;
+    while (true) {
+        switch (std.os.errno(std.os.system.ioctl(fd, request, @ptrToInt(&res)))) {
+            0 => break,
+            std.os.EBADF => return error.BadFileDescriptor,
+            std.os.EFAULT => unreachable, // Bad pointer param
+            std.os.EINVAL => unreachable, // Bad params
+            std.os.ENOTTY => return error.RequestDoesNotApply,
+            std.os.EINTR => continue,
+            else => |err| return std.os.unexpectedErrno(err),
+        }
+    }
+    return res;
+}
+
+fn tcflags(comptime itms: anytype) std.os.tcflag_t {
+    comptime {
+        var res: std.os.tcflag_t = 0;
+        for (itms) |itm| res |= @as(std.os.tcflag_t, @field(std.os, @tagName(itm)));
+        return res;
+    }
+}
+
+const VMIN: usize = switch (std.builtin.os.tag) {
+    .linux => switch (std.builtin.arch) {
+        .x86_64 => 6,
+        .aarch64 => 6,
+        .mipsel => 4,
+        else => c.VMIN,
+    },
+    else => c.VMIN,
+};
+const VTIME = switch (std.builtin.os.tag) {
+    .linux => switch (std.builtin.arch) {
+        .x86_64 => 5,
+        .aarch64 => 5,
+        .mipsel => 5,
+        else => c.VMIN,
+    },
+    else => c.VMIN,
+};
+
+const TermiosType = switch (std.builtin.os.tag) {
+    .linux => std.os.termios,
+    else => c.termios,
+};
+fn makeRaw(current_termios: TermiosType) TermiosType {
+    switch (std.builtin.os.tag) {
+        .linux => {
+            var new_termios = current_termios;
+            new_termios.iflag &= ~tcflags(.{ .IGNBRK, .BRKINT, .PARMRK, .ISTRIP, .INLCR, .IGNCR, .ICRNL, .IXON });
+            new_termios.oflag &= ~tcflags(.{.OPOST});
+            new_termios.lflag &= ~tcflags(.{ .ECHO, .ECHONL, .ICANON, .ISIG, .IEXTEN });
+            new_termios.cflag &= ~tcflags(.{ .CSIZE, .PARENB });
+            new_termios.cflag |= @as(std.os.tcflag_t, std.os.CS8);
+            new_termios.cc[VMIN] = 0;
+            new_termios.cc[VTIME] = 1;
+            return new_termios;
+        },
+        else => {
+            var new_termios = current_termios;
+            c.cfmakeraw(&new_termios);
+            new_termios.c_cc[c.VMIN] = 0;
+            new_termios.c_cc[c.VTIME] = 1;
+            return new_termios;
+        },
+    }
+}
+fn tcgetattr(fd: std.os.fd_t) !TermiosType {
+    switch (std.builtin.os.tag) {
+        .linux => return std.os.tcgetattr(stdin.handle) catch return error.BackendError,
+        else => {
+            var current_termios: TermiosType = undefined;
+            if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
+                return error.BackendError;
+            }
+            return current_termios;
+        },
+    }
+}
+fn tcsetattr(fd: std.os.fd_t, termios: TermiosType) !void {
+    switch (std.builtin.os.tag) {
+        .linux => std.os.tcsetattr(fd, std.os.TCSA.NOW, termios) catch return error.BackendError,
+        else => if (c.tcsetattr(stdin.handle, c.TCSANOW, &termios) < 0) {
+            return error.BackendError;
+        },
+    }
+}
+
 // TODO: Use "/dev/tty" if possible, instead of stdout/stdin
 pub const Backend = struct {
-    orig_termios: c.termios,
+    orig_termios: switch (std.builtin.os.tag) {
+        .linux => std.os.termios,
+        else => c.termios,
+    },
     alternate: bool,
     cursor_visible: bool,
     cursor_position: Position,
@@ -36,16 +129,15 @@ pub const Backend = struct {
         allocator: *std.mem.Allocator,
         config: Config,
     ) !Backend {
+        const orig_termios = try tcgetattr(stdin.handle);
+
         var result = Backend{
-            .orig_termios = undefined,
+            .orig_termios = orig_termios,
             .alternate = false,
             .cursor_visible = false,
             .cursor_position = undefined,
         };
 
-        if (c.tcgetattr(stdin.handle, &result.orig_termios) < 0) {
-            return error.BackendError;
-        }
         try result.setCursorPosition(Position{ .row = 0, .col = 0 });
 
         return result;
@@ -53,7 +145,7 @@ pub const Backend = struct {
 
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
-        _ = c.tcsetattr(stdin.handle, c.TCSANOW, &self.orig_termios);
+        tcsetattr(stdin.handle, self.orig_termios) catch {};
     }
 
     /// Retrieve supported features for this backend.
@@ -75,41 +167,25 @@ pub const Backend = struct {
 
     /// Retrieve raw mode status.
     pub fn getRawMode(self: *Self) !bool {
-        var current_termios: c.termios = undefined;
-        if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
-            return error.BackendError;
-        }
+        const current_termios = try tcgetattr(stdin.handle);
 
-        var new_termios = current_termios;
-        c.cfmakeraw(&new_termios);
-        new_termios.c_cc[c.VMIN] = 0;
-        new_termios.c_cc[c.VTIME] = 1;
+        const new_termios = makeRaw(current_termios);
 
         return std.meta.eql(new_termios, current_termios);
     }
 
     /// Enter/exit raw mode.
     pub fn setRawMode(self: *Self, enabled: bool) !void {
-        var current_termios: c.termios = undefined;
-        if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
-            return error.BackendError;
-        }
+        var current_termios = try tcgetattr(stdin.handle);
 
         if (enabled) {
-            var new_termios = current_termios;
-            c.cfmakeraw(&new_termios);
-            new_termios.c_cc[c.VMIN] = 0;
-            new_termios.c_cc[c.VTIME] = 1;
+            const new_termios = makeRaw(current_termios);
 
-            if (c.tcsetattr(stdin.handle, c.TCSANOW, &new_termios) < 0) {
-                return error.BackendError;
-            }
+            try tcsetattr(stdin.handle, new_termios);
         } else {
             // TODO: Check if there is a way to always disable raw mode, even
             //       if original was in raw mode
-            if (c.tcsetattr(stdin.handle, c.TCSANOW, &self.orig_termios) < 0) {
-                return error.BackendError;
-            }
+            try tcsetattr(stdin.handle, self.orig_termios);
         }
     }
 
@@ -151,18 +227,34 @@ pub const Backend = struct {
 
     /// Get screen size.
     pub fn getScreenSize(self: *Self) !Size {
-        var ws: c.winsize = undefined;
+        switch (std.builtin.os.tag) {
+            .linux => {
+                const ws = ioctl(stdout.handle, std.os.linux.TIOCGWINSZ, std.os.linux.winsize) catch return error.BackendError;
+                return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
+            },
+            .freebsd => {
+                const ws = ioctl(stdout.handle, std.os.freebsd.TIOCGWINSZ, std.os.freebsd.winsize) catch return error.BackendError;
+                return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
+            },
+            .netbsd => {
+                const ws = ioctl(stdout.handle, std.os.netbsd.TIOCGWINSZ, std.os.netbsd.winsize) catch return error.BackendError;
+                return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
+            },
+            else => {
+                var ws: c.winsize = undefined;
 
-        if (c.ioctl(stdout.handle, c.TIOCGWINSZ, &ws) < 0 or
-            ws.ws_col == 0 or ws.ws_row == 0)
-        {
-            return error.BackendError;
+                if (c.ioctl(stdout.handle, c.TIOCGWINSZ, &ws) < 0 or
+                    ws.ws_col == 0 or ws.ws_row == 0)
+                {
+                    return error.BackendError;
+                }
+
+                return Size{
+                    .rows = ws.ws_row,
+                    .cols = ws.ws_col,
+                };
+            },
         }
-
-        return Size{
-            .rows = ws.ws_row,
-            .cols = ws.ws_col,
-        };
     }
 
     /// Get cursor position.
