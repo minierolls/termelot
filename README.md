@@ -5,6 +5,9 @@
 **WARNING**: This library is currently *vaporware*! Many features are not yet
 fully implemented.
 
+See more on implementation progress in the project board!
+https://github.com/minierolls/termelot/projects/1
+
 ## Design
 
 **Termelot** is intended to be easy to work with for both library users and
