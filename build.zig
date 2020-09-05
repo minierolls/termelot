@@ -7,6 +7,18 @@ const std = @import("std");
 const Builder = std.build.Builder;
 const fs = std.fs;
 
+pub fn targetRequiresLibC(target: std.zig.CrossTarget) bool {
+    switch (target.getOsTag()) {
+        .linux => switch (target.getCpuArch()) {
+            .x86_64 => return false,
+            .aarch64 => return false,
+            .mipsel => return false,
+            else => return true,
+        },
+        else => return true,
+    }
+}
+
 pub fn build(b: *Builder) !void {
     b.setPreferredReleaseMode(.ReleaseFast);
     const mode = b.standardReleaseOptions();
@@ -37,8 +49,8 @@ pub fn build(b: *Builder) !void {
     ziro.setBuildMode(mode);
     ziro.setTarget(target);
     ziro.setOutputDir(examples_output_path);
+    if(targetRequiresLibC(target)) ziro.linkLibC();
     ziro.addPackagePath("termelot", "src/termelot.zig");
-    ziro.linkLibC();
 
     const ziro_run_cmd = ziro.run();
 
@@ -49,8 +61,8 @@ pub fn build(b: *Builder) !void {
     donut.setBuildMode(mode);
     donut.setTarget(target);
     donut.setOutputDir(examples_output_path);
+    if(targetRequiresLibC(target)) donut.linkLibC();
     donut.addPackagePath("termelot", "src/termelot.zig");
-    donut.linkLibC();
 
     const donut_run_cmd = donut.run();
 
