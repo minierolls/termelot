@@ -27,6 +27,8 @@ pub fn main() !void {
     try term.setCursorVisibility(false);
     defer term.setCursorVisibility(true) catch {};
 
+    try term.setTitle("Termelot Donut");
+
     const screen_width: f32 = 60.0;
     const screen_height: f32 = 60.0;
 
