@@ -170,12 +170,12 @@ pub const Backend = struct {
                 .Bit8 = false,
                 .Bit24 = true,
             },
-            .decorations = Decorations {
+            .decorations = Decorations{
                 .bold = false,
                 .italic = false,
                 .underline = false,
                 .blinking = false, // TODO: is blinking possible?
-            }
+            },
         };
     }
 
@@ -423,19 +423,20 @@ pub const Backend = struct {
             .Bit24 => |v| {
                 try self.setWindowsPaletteColor(0, v);
                 return 0; // no bits for black, which is the palette color we overwrote
-            }
+            },
         };
         // TODO: when you gotta deal with RGB use this https://stackoverflow.com/questions/9509278/rgb-specific-console-text-color-c
 
         // Background colors
         attr |= switch (style.fg_color) {
             .Default => self.restore_wattributes & 0xF0,
-            .Named16 => |v| (getAttributeForNamed16IgnoreBright(v) | if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0)) << 4,
+            .Named16 => |v| (getAttributeForNamed16IgnoreBright(v) |
+                if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0)) << 4,
             .Bit8 => return error.BackendError,
             .Bit24 => |v| {
                 try self.setWindowsPaletteColor(0, v);
                 return 0; // NOTE: a shift left of 4 is going to be optimized away, but one is thought to be here
-            }
+            },
         };
 
         // std.log.debug("attr: {}\n", .{attr});
@@ -460,8 +461,14 @@ pub const Backend = struct {
         };
 
         // Set new cursor position
-        if (windows.kernel32.SetConsoleCursorPosition(self.h_console_out_current, coord) == 0) {
-            std.log.emerg("GetLastError() = {}\n", .{windows.kernel32.GetLastError()});
+        if (windows.kernel32.SetConsoleCursorPosition(
+            self.h_console_out_current,
+            coord,
+        ) == 0) {
+            std.log.emerg(
+                "GetLastError() = {}\n",
+                .{windows.kernel32.GetLastError()},
+            );
             return error.BackendError;
         }
 
@@ -469,17 +476,21 @@ pub const Backend = struct {
         while (index < runes.len) : (index += 1) {
             if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
                 // Update attributes
-                try self.setWindowsPaletteColor(0, ColorBit24 { .code = 0 }); // Set palette position for 'Black' to black
-                if (windows.kernel32.SetConsoleTextAttribute(self.h_console_out_current, try self.getAttribute(styles[index])) == 0)
+                try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Set palette position for 'Black' to black
+                if (windows.kernel32.SetConsoleTextAttribute(
+                    self.h_console_out_current,
+                    try self.getAttribute(styles[index]),
+                ) == 0)
                     return error.BackendError;
             }
 
             // std.log.debug("len: {}\n", .{runes.len});
 
-            if (WriteConsoleA(self.h_console_out_current, &runes, @intCast(windows.DWORD, runes.len), null, null) == 0)
+            if (WriteConsoleA(self.h_console_out_current, &runes[index], 1, null, null) == 0)
                 return error.BackendError;
 
-            coord.X += 1; // TODO: handle newlines
+            coord.X += 1;
         }
+        try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Set palette position for 'Black' to black
     }
 };
