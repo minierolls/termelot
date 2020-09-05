@@ -71,7 +71,7 @@ pub const Backend = struct {
     }
 
     /// Set terminal title.
-    pub fn setTitle(self: *Self, runes: []Rune) !void {
+    pub fn setTitle(self: *Self, runes: []const Rune) !void {
         @compileError("Unimplemented");
     }
 

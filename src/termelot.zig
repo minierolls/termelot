@@ -168,7 +168,7 @@ pub const Termelot = struct {
         }
     }
 
-    pub fn setTitle(self: Self, title: []Rune) !void {
+    pub fn setTitle(self: *Self, title: []const Rune) !void {
         try self.backend.setTitle(title);
     }
 
@@ -190,7 +190,7 @@ pub const Termelot = struct {
 
     pub fn clearScreen(self: *Self) !void {
         const orig_cursor_position = self.cursor_position;
-        try self.screen_buffer.clear();
+        self.screen_buffer.clear();
         try self.setCursorPosition(orig_cursor_position);
     }
 
