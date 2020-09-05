@@ -7,21 +7,34 @@ const std = @import("std");
 
 const termelot_import = @import("../termelot.zig");
 const Termelot = termelot_import.Termelot;
+const SupportedFeatures = termelot_import.SupportedFeatures;
 const Config = termelot_import.Config;
 const Position = termelot_import.Position;
+usingnamespace termelot_import.style;
 const Size = termelot_import.Size;
+const Rune = termelot_import.Rune;
 
 const windows = std.os.windows;
 
 // WINAPI defines not made in standard library as of Zig commit 84d50c892
-extern "kernel32" fn SetConsoleMode(
-    hConsoleHandle: windows.HANDLE,
-    dwMode: windows.DWORD,
-) callconv(.Stdcall) windows.BOOL;
+const COLORREF = windows.DWORD;
 
-extern "kernel32" fn SetConsoleActiveScreenBuffer(
-    hConsoleOutput: windows.HANDLE,
-) callconv(.Stdcall) windows.BOOL;
+const CONSOLE_CURSOR_INFO = extern struct {
+    dwSize: windows.DWORD,
+    bVisible: windows.BOOL,
+};
+
+const CONSOLE_SCREEN_BUFFER_INFOEX = extern struct {
+    cbSize: windows.ULONG,
+    dwSize: windows.COORD,
+    dwCursorPosition: windows.COORD,
+    wAttributes: windows.WORD,
+    srWindow: windows.SMALL_RECT,
+    dwMaximumWindowSize: windows.COORD,
+    wPopupAttributes: windows.WORD,
+    bFullscreenSupported: windows.BOOL,
+    ColorTable: [16]COLORREF,
+};
 
 extern "kernel32" fn CreateConsoleScreenBuffer(
     dwDesiredAccess: windows.DWORD,
@@ -31,28 +44,42 @@ extern "kernel32" fn CreateConsoleScreenBuffer(
     lpScreenBufferData: ?windows.LPVOID,
 ) callconv(.Stdcall) windows.HANDLE;
 
-// extern "kernel32" fn WriteConsoleOutputCharacter(
-// hConsoleOutput: windows.HANDLE,
-// lpCharacter: windows.LPCTSTR,
-// nLength: windows.DWORD,
-// dwWriteCoord: windows.COORD,
-// lpNumberOfCharsWritten: windows.LPDWORD,
-// ) callconv(.Stdcall) windows.BOOL;
-
-const CONSOLE_CURSOR_INFO = extern struct {
-    dwSize: windows.DWORD,
-    bVisible: windows.BOOL,
-};
-
 extern "kernel32" fn GetConsoleCursorInfo(
     hConsoleOutput: windows.HANDLE,
     lpConsoleCursorInfo: *CONSOLE_CURSOR_INFO,
-) windows.BOOL;
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn GetConsoleScreenBufferInfoEx(
+    hConsoleOutput: windows.HANDLE,
+    lpConsoleScreenBufferInfoEx: *CONSOLE_SCREEN_BUFFER_INFOEX,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn SetConsoleActiveScreenBuffer(
+    hConsoleOutput: windows.HANDLE,
+) callconv(.Stdcall) windows.BOOL;
 
 extern "kernel32" fn SetConsoleCursorInfo(
     hConsoleOutput: windows.HANDLE,
-    lpConsoleCursorInfo: *const CONSOLE_CURSOR_INFO,
-) windows.BOOL;
+    lpConsoleCursorInfo: *CONSOLE_CURSOR_INFO,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn SetConsoleScreenBufferInfoEx(
+    hConsoleOutput: windows.HANDLE,
+    lpConsoleScreenBufferInfoEx: *const CONSOLE_SCREEN_BUFFER_INFOEX,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn SetConsoleMode(
+    hConsoleHandle: windows.HANDLE,
+    dwMode: windows.DWORD,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn WriteConsoleA(
+    hConsoleOutput: windows.HANDLE,
+    lpBuffer: *const c_void,
+    nNumberOfCharsToWrite: windows.DWORD,
+    lpNumberOfCharsWritten: ?windows.LPDWORD,
+    lpReserved: ?windows.LPVOID,
+) callconv(.Stdcall) windows.BOOL;
 
 const CONSOLE_TEXTMODE_BUFFER: windows.DWORD = 1;
 
@@ -79,40 +106,77 @@ pub const Backend = struct {
     h_console_out_current: windows.HANDLE,
     h_console_out_alt: ?windows.HANDLE,
     h_console_in: windows.HANDLE,
-    restore_console_mode: windows.DWORD,
     in_raw_mode: bool,
+    restore_console_mode_out: windows.DWORD,
+    restore_console_mode_in: windows.DWORD,
+    restore_wattributes: windows.WORD,
 
     const Self = @This();
 
     /// Initialize backend
     pub fn init(
         termelot: *Termelot,
-        allocator: *std.mem.allocator,
+        allocator: *std.mem.Allocator,
         config: Config,
     ) !Backend {
+        // Get console handles
         const out_main = try windows.GetStdHandle(windows.STD_OUTPUT_HANDLE);
         const in_main = try windows.GetStdHandle(windows.STD_INPUT_HANDLE);
-        var rcm: windows.DWORD = undefined;
-        if (windows.kernel32.GetConsoleMode(out_main, &rcm) == 0) {
+
+        // Set restore values
+        var rcm_out: windows.DWORD = undefined;
+        if (windows.kernel32.GetConsoleMode(out_main, &rcm_out) == 0) {
             return error.BackendError;
         }
-        return result = Backend{
+        var rcm_in: windows.DWORD = undefined;
+        if (windows.kernel32.GetConsoleMode(in_main, &rcm_in) == 0) {
+            return error.BackendError;
+        }
+
+        var b = Backend{
             .h_console_out_main = out_main,
             .h_console_out_current = out_main,
             .h_console_in = in_main,
             .h_console_out_alt = null,
-            .restore_console_mode = rcm,
             .in_raw_mode = false,
+            .restore_console_mode_out = rcm_out,
+            .restore_console_mode_in = rcm_in,
+            .restore_wattributes = undefined,
         };
+
+        b.restore_wattributes = (try getScreenBufferInfo(&b)).wAttributes;
+
+        return b;
     }
 
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
+        defer _ = windows.kernel32.CloseHandle(self.h_console_out_main);
         self.setAlternateScreen(false) catch {};
         if (self.h_console_out_alt) |handle| {
             _ = windows.kernel32.CloseHandle(handle);
         }
-        _ = SetConsoleMode(self.h_console_out_main, self.restore_console_mode);
+        // Restore console behavior
+        _ = SetConsoleMode(self.h_console_out_main, self.restore_console_mode_out);
+        _ = SetConsoleMode(self.h_console_in, self.restore_console_mode_in);
+        _ = windows.kernel32.SetConsoleTextAttribute(self.h_console_out_main, self.restore_wattributes);
+    }
+
+    /// Retrieve SupportedFeatures struct from this backend.
+    pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
+        return SupportedFeatures{
+            .color_types = .{
+                .Named16 = true,
+                .Bit8 = false,
+                .Bit24 = true,
+            },
+            .decorations = Decorations {
+                .bold = false,
+                .italic = false,
+                .underline = false,
+                .blinking = false, // TODO: is blinking possible?
+            }
+        };
     }
 
     /// Retrieve raw mode status.
@@ -133,7 +197,7 @@ pub const Backend = struct {
                 ENABLE_MOUSE_INPUT |
                 ENABLE_WINDOW_INPUT |
                 ENABLE_VIRTUAL_TERMINAL_INPUT;
-            output_flags = ENABLE_VIRTUAL_TERMINAL |
+            output_flags = ENABLE_VIRTUAL_TERMINAL_PROCESSING |
                 DISABLE_NEWLINE_AUTO_RETURN;
         } else {
             input_flags = ENABLE_ECHO_INPUT |
@@ -218,12 +282,12 @@ pub const Backend = struct {
     pub fn start(self: *Self) !void {
         // This function should call necessary functions for screen size
         // update, key event callbacks, and mouse event callbacks.
-        @compileError("Unimplemented");
+        // @compileError("Unimplemented");
     }
 
     /// Stop event/signal handling loop.
     pub fn stop(self: *Self) void {
-        @compileError("Unimplemented");
+        // @compileError("Unimplemented");
     }
 
     fn getScreenBufferInfo(
@@ -245,7 +309,7 @@ pub const Backend = struct {
     }
 
     /// Get screen size.
-    pub fn getScreenSize(self: *Self) !Position {
+    pub fn getScreenSize(self: *Self) !Size {
         const csbi = try self.getScreenBufferInfo();
         return Size{
             .rows = @intCast(
@@ -315,6 +379,70 @@ pub const Backend = struct {
         }
     }
 
+    /// Get the Windows attribute data for a Named16. Will not handle Named16 Brights.
+    fn getAttributeForNamed16IgnoreBright(color: ColorNamed16) windows.WORD {
+        return switch (color) {
+            .Black, .BrightBlack => 0, // No bits for black :^)
+            .Red, .BrightRed => windows.FOREGROUND_RED,
+            .Green, .BrightGreen => windows.FOREGROUND_GREEN,
+            .Yellow, .BrightYellow => windows.FOREGROUND_RED | windows.FOREGROUND_GREEN,
+            .Blue, .BrightBlue => windows.FOREGROUND_BLUE,
+            .Magenta, .BrightMagenta => windows.FOREGROUND_RED | windows.FOREGROUND_BLUE,
+            .Cyan, .BrightCyan => windows.FOREGROUND_GREEN | windows.FOREGROUND_BLUE,
+            .White, .BrightWhite => windows.FOREGROUND_RED | windows.FOREGROUND_GREEN | windows.FOREGROUND_BLUE,
+        };
+    }
+
+    pub fn setWindowsPaletteColor(self: *Self, idx: usize, color: ColorBit24) !void {
+        std.debug.assert(idx >= 0 and idx < 16);
+
+        var csbi_ex: CONSOLE_SCREEN_BUFFER_INFOEX = undefined;
+        csbi_ex.cbSize = @sizeOf(CONSOLE_SCREEN_BUFFER_INFOEX);
+        if (GetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
+            return error.BackendError;
+
+        csbi_ex.ColorTable[idx] = @intCast(COLORREF, color.code);
+
+        if (SetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
+            return error.BackendError;
+    }
+
+    /// Translates the TermCon Style into a Windows console attribute.
+    fn getAttribute(self: *Self, style: Style) !windows.WORD {
+        if (style.decorations.italic or style.decorations.bold or style.decorations.underline or style.decorations.blinking) {
+            return error.BackendError; // Windows console API does not support text decorations, but using ANSI backend on Powershell and other editors on Windows works with text decorations.
+        }
+
+        var attr = @as(windows.WORD, 0);
+
+        // Foreground colors
+        attr |= switch (style.fg_color) {
+            .Default => self.restore_wattributes & 0xF,
+            .Named16 => |v| getAttributeForNamed16IgnoreBright(v) | if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0),
+            .Bit8 => return error.BackendError,
+            .Bit24 => |v| {
+                try self.setWindowsPaletteColor(0, v);
+                return 0; // no bits for black, which is the palette color we overwrote
+            }
+        };
+        // TODO: when you gotta deal with RGB use this https://stackoverflow.com/questions/9509278/rgb-specific-console-text-color-c
+
+        // Background colors
+        attr |= switch (style.fg_color) {
+            .Default => self.restore_wattributes & 0xF0,
+            .Named16 => |v| (getAttributeForNamed16IgnoreBright(v) | if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0)) << 4,
+            .Bit8 => return error.BackendError,
+            .Bit24 => |v| {
+                try self.setWindowsPaletteColor(0, v);
+                return 0; // NOTE: a shift left of 4 is going to be optimized away, but one is thought to be here
+            }
+        };
+
+        // std.log.debug("attr: {}\n", .{attr});
+
+        return attr;
+    }
+
     /// Write styled output to screen at position. Assumed that no newline
     /// or carriage return runes are provided.
     pub fn write(
@@ -323,6 +451,35 @@ pub const Backend = struct {
         runes: []Rune,
         styles: []Style,
     ) !void {
-        @compileError("Unimplemented");
+        std.debug.assert(runes.len == styles.len);
+
+        const csbi = try self.getScreenBufferInfo();
+        var coord = windows.COORD{
+            .X = @intCast(windows.SHORT, position.col),
+            .Y = @intCast(windows.SHORT, position.row),
+        };
+
+        // Set new cursor position
+        if (windows.kernel32.SetConsoleCursorPosition(self.h_console_out_current, coord) == 0) {
+            std.log.emerg("GetLastError() = {}\n", .{windows.kernel32.GetLastError()});
+            return error.BackendError;
+        }
+
+        var index: u32 = 0;
+        while (index < runes.len) : (index += 1) {
+            if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
+                // Update attributes
+                try self.setWindowsPaletteColor(0, ColorBit24 { .code = 0 }); // Set palette position for 'Black' to black
+                if (windows.kernel32.SetConsoleTextAttribute(self.h_console_out_current, try self.getAttribute(styles[index])) == 0)
+                    return error.BackendError;
+            }
+
+            // std.log.debug("len: {}\n", .{runes.len});
+
+            if (WriteConsoleA(self.h_console_out_current, &runes, @intCast(windows.DWORD, runes.len), null, null) == 0)
+                return error.BackendError;
+
+            coord.X += 1; // TODO: handle newlines
+        }
     }
 };

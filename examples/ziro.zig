@@ -19,7 +19,7 @@ const Position = termelot.Position;
 const Cell = termelot.Cell;
 const Style = style.Style;
 const Color = style.Color;
-const ColorBit8 = style.ColorBit8;
+const ColorNamed16 = style.ColorNamed16;
 const Decorations = style.Decorations;
 
 pub fn main() !void {
@@ -40,11 +40,11 @@ pub fn main() !void {
         Cell{
             .rune = 'X',
             .style = Style{
-                .fg_color = Color{ .Bit8 = ColorBit8{ .code = 148 } },
-                .bg_color = Color{ .Bit8 = ColorBit8{ .code = 197 } },
+                .fg_color = Color{ .Named16 = ColorNamed16.BrightRed },
+                .bg_color = Color{ .Named16 = ColorNamed16.Blue },
                 .decorations = Decorations{
                     .italic = false,
-                    .bold = true,
+                    .bold = term.supported_features.decorations.bold,
                     .underline = false,
                     .blinking = false,
                 },
@@ -59,4 +59,6 @@ pub fn main() !void {
         },
     );
     try term.drawScreen();
+
+    std.time.sleep(4 * std.time.ns_per_s);
 }

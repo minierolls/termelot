@@ -8,7 +8,7 @@ const Builder = std.build.Builder;
 const fs = std.fs;
 
 pub fn build(b: *Builder) !void {
-    b.setPreferredReleaseMode(.ReleaseFast);
+    b.setPreferredReleaseMode(.ReleaseSafe);
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
