@@ -309,7 +309,7 @@ pub const Buffer = struct {
 
         {
             var row_index: u16 = 0;
-            while (row_index < self.size.rows) : (row_index += 1) {
+            while (row_index < screen_size.rows) : (row_index += 1) {
                 const row_start: u32 = @as(u32, row_index) *
                     @as(u32, self.size.cols);
                 const row_end: u32 = row_start + @as(u32, screen_size.cols);
