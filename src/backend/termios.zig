@@ -24,7 +24,11 @@ usingnamespace termelot_import.style;
 fn ioctl(fd: std.os.fd_t, request: u32, comptime ResT: type) !ResT {
     var res: ResT = undefined;
     while (true) {
-        switch (std.os.errno(std.os.system.ioctl(fd, request, @ptrToInt(&res)))) {
+        switch (std.os.errno(std.os.system.ioctl(
+            fd,
+            request,
+            @ptrToInt(&res),
+        ))) {
             0 => break,
             std.os.EBADF => return error.BadFileDescriptor,
             std.os.EFAULT => unreachable, // Bad pointer param
@@ -40,7 +44,10 @@ fn ioctl(fd: std.os.fd_t, request: u32, comptime ResT: type) !ResT {
 fn tcflags(comptime itms: anytype) std.os.tcflag_t {
     comptime {
         var res: std.os.tcflag_t = 0;
-        for (itms) |itm| res |= @as(std.os.tcflag_t, @field(std.os, @tagName(itm)));
+        for (itms) |itm| res |= @as(
+            std.os.tcflag_t,
+            @field(std.os, @tagName(itm)),
+        );
         return res;
     }
 }
@@ -72,9 +79,24 @@ fn makeRaw(current_termios: TermiosType) TermiosType {
     switch (std.builtin.os.tag) {
         .linux => {
             var new_termios = current_termios;
-            new_termios.iflag &= ~tcflags(.{ .IGNBRK, .BRKINT, .PARMRK, .ISTRIP, .INLCR, .IGNCR, .ICRNL, .IXON });
+            new_termios.iflag &= ~tcflags(.{
+                .IGNBRK,
+                .BRKINT,
+                .PARMRK,
+                .ISTRIP,
+                .INLCR,
+                .IGNCR,
+                .ICRNL,
+                .IXON,
+            });
             new_termios.oflag &= ~tcflags(.{.OPOST});
-            new_termios.lflag &= ~tcflags(.{ .ECHO, .ECHONL, .ICANON, .ISIG, .IEXTEN });
+            new_termios.lflag &= ~tcflags(.{
+                .ECHO,
+                .ECHONL,
+                .ICANON,
+                .ISIG,
+                .IEXTEN,
+            });
             new_termios.cflag &= ~tcflags(.{ .CSIZE, .PARENB });
             new_termios.cflag |= @as(std.os.tcflag_t, std.os.CS8);
             new_termios.cc[VMIN] = 0;
@@ -92,7 +114,8 @@ fn makeRaw(current_termios: TermiosType) TermiosType {
 }
 fn tcgetattr(fd: std.os.fd_t) !TermiosType {
     switch (std.builtin.os.tag) {
-        .linux => return std.os.tcgetattr(stdin.handle) catch return error.BackendError,
+        .linux => return std.os.tcgetattr(stdin.handle) catch
+            return error.BackendError,
         else => {
             var current_termios: TermiosType = undefined;
             if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
@@ -104,7 +127,8 @@ fn tcgetattr(fd: std.os.fd_t) !TermiosType {
 }
 fn tcsetattr(fd: std.os.fd_t, termios: TermiosType) !void {
     switch (std.builtin.os.tag) {
-        .linux => std.os.tcsetattr(fd, std.os.TCSA.NOW, termios) catch return error.BackendError,
+        .linux => std.os.tcsetattr(fd, std.os.TCSA.NOW, termios) catch
+            return error.BackendError,
         else => if (c.tcsetattr(stdin.handle, c.TCSANOW, &termios) < 0) {
             return error.BackendError;
         },
@@ -229,15 +253,27 @@ pub const Backend = struct {
     pub fn getScreenSize(self: *Self) !Size {
         switch (std.builtin.os.tag) {
             .linux => {
-                const ws = ioctl(stdout.handle, std.os.linux.TIOCGWINSZ, std.os.linux.winsize) catch return error.BackendError;
+                const ws = ioctl(
+                    stdout.handle,
+                    std.os.linux.TIOCGWINSZ,
+                    std.os.linux.winsize,
+                ) catch return error.BackendError;
                 return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
             },
             .freebsd => {
-                const ws = ioctl(stdout.handle, std.os.freebsd.TIOCGWINSZ, std.os.freebsd.winsize) catch return error.BackendError;
+                const ws = ioctl(
+                    stdout.handle,
+                    std.os.freebsd.TIOCGWINSZ,
+                    std.os.freebsd.winsize,
+                ) catch return error.BackendError;
                 return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
             },
             .netbsd => {
-                const ws = ioctl(stdout.handle, std.os.netbsd.TIOCGWINSZ, std.os.netbsd.winsize) catch return error.BackendError;
+                const ws = ioctl(
+                    stdout.handle,
+                    std.os.netbsd.TIOCGWINSZ,
+                    std.os.netbsd.winsize,
+                ) catch return error.BackendError;
                 return Size{ .rows = ws.ws_row, .cols = ws.ws_col };
             },
             else => {
