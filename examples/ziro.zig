@@ -59,4 +59,6 @@ pub fn main() !void {
     //     },
     // );
     try term.drawScreen();
+
+    std.time.sleep(4 * std.time.ns_per_s);
 }
