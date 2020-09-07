@@ -292,7 +292,7 @@ pub const Backend = struct {
 
     fn getScreenBufferInfo(
         self: *Self,
-    ) !windows.CONSOLE_SCREEN_BUFFER_INFO {
+    ) !windows.CONSOLE_SCREEN_BUFFER_INFO { // TODO: make this suitable for inlining
         var csbi: windows.CONSOLE_SCREEN_BUFFER_INFO = undefined;
         if (windows.kernel32.GetConsoleScreenBufferInfo(
             self.h_console_out_current,
@@ -326,31 +326,43 @@ pub const Backend = struct {
     /// Get cursor position.
     pub fn getCursorPosition(self: *Self) !Position {
         const csbi = try self.getScreenBufferInfo();
+        const coord = try self.coordToScreenSpace(csbi.dwCursorPosition);
         return Position{
-            .row = @intCast(
-                u16,
-                csbi.dwCursorPosition.Y - csbi.srWindow.Top,
-            ),
-            .col = @intCast(
-                u16,
-                csbi.dwCursorPosition.X - csbi.srWindow.Left,
-            ),
+            .col = @intCast(u16, coord.X),
+            .row = @intCast(u16, coord.Y), 
         };
     }
 
     /// Set cursor position.
     pub fn setCursorPosition(self: *Self, position: Position) !void {
-        const csbi = try self.getScreenBufferInfo();
-        var coord = windows.COORD{
-            .Y = @intCast(i16, position.row) + csbi.srWindow.Top,
-            .X = @intCast(i16, position.col) + csbi.srWindow.Left,
-        };
+        const coord = try self.coordToBufferSpace(windows.COORD{
+            .X = @intCast(windows.SHORT, position.col),
+            .Y = @intCast(windows.SHORT, position.row),
+        });
         if (windows.kernel32.SetConsoleCursorPosition(
             self.h_console_out_current,
             coord,
         ) == 0) {
             return error.BackendError;
         }
+    }
+
+    /// Convert any Windows COORD (FROM screen space) TO buffer space.
+    pub inline fn coordToBufferSpace(self: *Self, coord: windows.COORD) !windows.COORD {
+        const csbi = try self.getScreenBufferInfo();
+        return windows.COORD{
+            .Y = coord.Y - csbi.srWindow.Top,
+            .X = coord.X - csbi.srWindow.Left,
+        };
+    }
+
+    /// Convert any Windows COORD (FROM buffer space) TO screen space.
+    pub inline fn coordToScreenSpace(self: *Self, coord: windows.COORD) !windows.COORD {
+        const csbi = try self.getScreenBufferInfo();
+        return windows.COORD{
+            .Y = coord.Y + csbi.srWindow.Top,
+            .X = coord.X + csbi.srWindow.Left,
+        };
     }
 
     /// Get cursor visibility.
@@ -455,10 +467,14 @@ pub const Backend = struct {
         std.debug.assert(runes.len == styles.len);
 
         const csbi = try self.getScreenBufferInfo();
-        var coord = windows.COORD{
+        
+        std.debug.assert(position.col >= csbi.srWindow.Left and position.col <= csbi.srWindow.Right);
+        std.debug.assert(position.row >= csbi.srWindow.Top and position.row <= csbi.srWindow.Bottom);
+
+        var coord = try self.coordToBufferSpace(windows.COORD{
             .X = @intCast(windows.SHORT, position.col),
             .Y = @intCast(windows.SHORT, position.row),
-        };
+        });
 
         // Set new cursor position
         if (windows.kernel32.SetConsoleCursorPosition(
@@ -466,8 +482,9 @@ pub const Backend = struct {
             coord,
         ) == 0) {
             std.log.emerg(
-                "GetLastError() = {}\n",
-                .{windows.kernel32.GetLastError()},
+                "Coord: ({}, {}), GetLastError() = {}\r\n",
+                .{coord.X, coord.Y,
+                windows.kernel32.GetLastError()},
             );
             return error.BackendError;
         }
@@ -483,8 +500,6 @@ pub const Backend = struct {
                 ) == 0)
                     return error.BackendError;
             }
-
-            // std.log.debug("len: {}\n", .{runes.len});
 
             if (WriteConsoleA(self.h_console_out_current, &runes[index], 1, null, null) == 0)
                 return error.BackendError;

@@ -36,7 +36,7 @@ pub fn main() !void {
     defer _ = term.deinit();
 
     term.setCell(
-        Position{ .row = 0, .col = 0 },
+        Position{ .row = 5, .col = 3 },
         Cell{
             .rune = 'X',
             .style = Style{
@@ -51,14 +51,12 @@ pub fn main() !void {
             },
         },
     );
-    term.setCell(
-        Position{ .row = 0, .col = 1 },
-        Cell{
-            .rune = 'X',
-            .style = term.screen_buffer.default_style,
-        },
-    );
+    // term.setCell(
+    //     Position{ .row = 0, .col = 1 },
+    //     Cell{
+    //         .rune = 'X',
+    //         .style = term.screen_buffer.default_style,
+    //     },
+    // );
     try term.drawScreen();
-
-    std.time.sleep(4 * std.time.ns_per_s);
 }
