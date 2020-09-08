@@ -432,6 +432,7 @@ pub const Backend = struct {
     /// Translates the TermCon Style into a Windows console attribute.
     fn getAttribute(self: *Self, style: Style) !windows.WORD {
         if (style.decorations.italic or style.decorations.bold or style.decorations.underline or style.decorations.blinking) {
+            // TODO: support text decorations via ANSI escape codes with ENABLE_VIRTUAL_TERMINAL_PROCESSING console mode flag
             return error.BackendError; // Windows console API does not support text decorations, but using ANSI backend on Powershell and other editors on Windows works with text decorations.
         }
 
@@ -450,7 +451,7 @@ pub const Backend = struct {
         // TODO: when you gotta deal with RGB use this https://stackoverflow.com/questions/9509278/rgb-specific-console-text-color-c
 
         // Background colors
-        attr |= switch (style.fg_color) {
+        attr |= switch (style.bg_color) {
             .Default => self.restore_wattributes & 0xF0,
             .Named16 => |v| getAttributeForNamed16(v) << 4,
             .Bit8 => return error.BackendError,
