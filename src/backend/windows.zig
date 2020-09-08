@@ -152,7 +152,6 @@ pub const Backend = struct {
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
         defer _ = windows.kernel32.CloseHandle(self.h_console_out_main);
-        self.setAlternateScreen(false) catch {};
         if (self.h_console_out_alt) |handle| {
             _ = windows.kernel32.CloseHandle(handle);
         }
@@ -351,8 +350,8 @@ pub const Backend = struct {
     pub inline fn coordToBufferSpace(self: *Self, coord: windows.COORD) !windows.COORD {
         const csbi = try self.getScreenBufferInfo();
         return windows.COORD{
-            .Y = coord.Y - csbi.srWindow.Top,
-            .X = coord.X - csbi.srWindow.Left,
+            .Y = coord.Y + csbi.srWindow.Top,
+            .X = coord.X + csbi.srWindow.Left,
         };
     }
 
@@ -360,8 +359,8 @@ pub const Backend = struct {
     pub inline fn coordToScreenSpace(self: *Self, coord: windows.COORD) !windows.COORD {
         const csbi = try self.getScreenBufferInfo();
         return windows.COORD{
-            .Y = coord.Y + csbi.srWindow.Top,
-            .X = coord.X + csbi.srWindow.Left,
+            .Y = coord.Y - csbi.srWindow.Top,
+            .X = coord.X - csbi.srWindow.Left,
         };
     }
 
@@ -391,17 +390,25 @@ pub const Backend = struct {
         }
     }
 
-    /// Get the Windows attribute data for a Named16. Will not handle Named16 Brights.
-    fn getAttributeForNamed16IgnoreBright(color: ColorNamed16) windows.WORD {
+    /// Get a 4-bit Windows color attribute from a Named16.
+    fn getAttributeForNamed16(color: ColorNamed16) windows.WORD {
         return switch (color) {
-            .Black, .BrightBlack => 0, // No bits for black :^)
-            .Red, .BrightRed => windows.FOREGROUND_RED,
-            .Green, .BrightGreen => windows.FOREGROUND_GREEN,
-            .Yellow, .BrightYellow => windows.FOREGROUND_RED | windows.FOREGROUND_GREEN,
-            .Blue, .BrightBlue => windows.FOREGROUND_BLUE,
-            .Magenta, .BrightMagenta => windows.FOREGROUND_RED | windows.FOREGROUND_BLUE,
-            .Cyan, .BrightCyan => windows.FOREGROUND_GREEN | windows.FOREGROUND_BLUE,
-            .White, .BrightWhite => windows.FOREGROUND_RED | windows.FOREGROUND_GREEN | windows.FOREGROUND_BLUE,
+            .Black, .BrightBlack => 0,
+            .Blue => 1,
+            .Green => 2,
+            .Cyan => 3,
+            .Red => 4,
+            .Magenta => 5,
+            .Yellow => 6,
+            .White => 7,
+            //.Grey => 8,
+            .BrightBlue => 9,
+            .BrightGreen => 0xA,
+            .BrightCyan => 0xB,
+            .BrightRed => 0xC,
+            .BrightMagenta => 0xD,
+            .BrightYellow => 0xE,
+            .BrightWhite => 0xF,
         };
     }
 
@@ -414,6 +421,9 @@ pub const Backend = struct {
             return error.BackendError;
 
         csbi_ex.ColorTable[idx] = @intCast(COLORREF, color.code);
+
+        csbi_ex.srWindow.Right += 1; // SetCons..Ex interprets as width, Get sets as index, so 1 is subtracted after every call to Set...
+        csbi_ex.srWindow.Bottom += 1; // It's probably an old bug in Windows kernel that shouldn't be fixed...
 
         if (SetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
             return error.BackendError;
@@ -430,7 +440,7 @@ pub const Backend = struct {
         // Foreground colors
         attr |= switch (style.fg_color) {
             .Default => self.restore_wattributes & 0xF,
-            .Named16 => |v| getAttributeForNamed16IgnoreBright(v) | if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0),
+            .Named16 => |v| getAttributeForNamed16(v),
             .Bit8 => return error.BackendError,
             .Bit24 => |v| {
                 try self.setWindowsPaletteColor(0, v);
@@ -442,8 +452,7 @@ pub const Backend = struct {
         // Background colors
         attr |= switch (style.fg_color) {
             .Default => self.restore_wattributes & 0xF0,
-            .Named16 => |v| (getAttributeForNamed16IgnoreBright(v) |
-                if (v.isBright()) windows.FOREGROUND_INTENSITY else @as(windows.WORD, 0)) << 4,
+            .Named16 => |v| getAttributeForNamed16(v) << 4,
             .Bit8 => return error.BackendError,
             .Bit24 => |v| {
                 try self.setWindowsPaletteColor(0, v);
@@ -467,14 +476,12 @@ pub const Backend = struct {
         std.debug.assert(runes.len == styles.len);
 
         const csbi = try self.getScreenBufferInfo();
-        
-        std.debug.assert(position.col >= csbi.srWindow.Left and position.col <= csbi.srWindow.Right);
-        std.debug.assert(position.row >= csbi.srWindow.Top and position.row <= csbi.srWindow.Bottom);
-
         var coord = try self.coordToBufferSpace(windows.COORD{
             .X = @intCast(windows.SHORT, position.col),
             .Y = @intCast(windows.SHORT, position.row),
         });
+        std.debug.assert(coord.X >= csbi.srWindow.Left and coord.X <= csbi.srWindow.Right);
+        std.debug.assert(coord.Y >= csbi.srWindow.Top and coord.Y <= csbi.srWindow.Bottom);
 
         // Set new cursor position
         if (windows.kernel32.SetConsoleCursorPosition(
@@ -482,8 +489,9 @@ pub const Backend = struct {
             coord,
         ) == 0) {
             std.log.emerg(
-                "Coord: ({}, {}), GetLastError() = {}\r\n",
+                "Coord: ({}, {}), srWindow(L: {}, T: {}, R: {}, B: {}), GetLastError() = {}\r\n",
                 .{coord.X, coord.Y,
+                csbi.srWindow.Left, csbi.srWindow.Top, csbi.srWindow.Right, csbi.srWindow.Bottom,
                 windows.kernel32.GetLastError()},
             );
             return error.BackendError;
