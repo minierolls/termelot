@@ -60,7 +60,12 @@ extern "kernel32" fn SetConsoleActiveScreenBuffer(
 
 extern "kernel32" fn SetConsoleCursorInfo(
     hConsoleOutput: windows.HANDLE,
-    lpConsoleCursorInfo: *CONSOLE_CURSOR_INFO,
+    lpConsoleCursorInfo: *const CONSOLE_CURSOR_INFO,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn SetConsoleMode(
+    hConsoleHandle: windows.HANDLE,
+    dwMode: windows.DWORD,
 ) callconv(.Stdcall) windows.BOOL;
 
 extern "kernel32" fn SetConsoleScreenBufferInfoEx(
@@ -68,9 +73,8 @@ extern "kernel32" fn SetConsoleScreenBufferInfoEx(
     lpConsoleScreenBufferInfoEx: *const CONSOLE_SCREEN_BUFFER_INFOEX,
 ) callconv(.Stdcall) windows.BOOL;
 
-extern "kernel32" fn SetConsoleMode(
-    hConsoleHandle: windows.HANDLE,
-    dwMode: windows.DWORD,
+extern "kernel32" fn SetConsoleTitleA(
+    lpConsoleTitle: windows.LPCTSTR,
 ) callconv(.Stdcall) windows.BOOL;
 
 extern "kernel32" fn WriteConsoleA(
@@ -102,6 +106,7 @@ const DISABLE_NEWLINE_AUTO_RETURN: windows.DWORD = 0x0008;
 const ENABLE_LVB_GRID_WORLDWIDE: windows.DWORD = 0x0010;
 
 pub const Backend = struct {
+    allocator: *std.mem.Allocator,
     h_console_out_main: windows.HANDLE,
     h_console_out_current: windows.HANDLE,
     h_console_out_alt: ?windows.HANDLE,
@@ -134,6 +139,7 @@ pub const Backend = struct {
         }
 
         var b = Backend{
+            .allocator = allocator,
             .h_console_out_main = out_main,
             .h_console_out_current = out_main,
             .h_console_in = in_main,
@@ -303,8 +309,9 @@ pub const Backend = struct {
     }
 
     /// Set terminal title.
-    pub fn setTitle(self: *Self, runes: []Rune) !void {
-        @compileError("Unimplemented");
+    pub fn setTitle(self: *Self, runes: []const Rune) !void {
+        const cstr = try std.cstr.addNullByte(self.allocator, runes);
+        if (SetConsoleTitleA(cstr) == 0) return error.BackendError;
     }
 
     /// Get screen size.
@@ -420,6 +427,7 @@ pub const Backend = struct {
         if (GetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
             return error.BackendError;
 
+        // TODO: COLORREF are in blue,green,red which is opposite of this library's format
         csbi_ex.ColorTable[idx] = @intCast(COLORREF, color.code);
 
         csbi_ex.srWindow.Right += 1; // SetCons..Ex interprets as width, Get sets as index, so 1 is subtracted after every call to Set...
@@ -437,31 +445,38 @@ pub const Backend = struct {
         }
 
         var attr = @as(windows.WORD, 0);
+        var fg_is_rgb = false; // Useful when editing color palette for RGB background
 
         // Foreground colors
-        attr |= switch (style.fg_color) {
-            .Default => self.restore_wattributes & 0xF,
-            .Named16 => |v| getAttributeForNamed16(v),
+        switch (style.fg_color) {
+            .Default => attr |= self.restore_wattributes & 0x0F,
+            .Named16 => |v| attr |= getAttributeForNamed16(v),
             .Bit8 => return error.BackendError,
             .Bit24 => |v| {
+                fg_is_rgb = true;
+                std.log.debug("sending code: {} : ", .{v.code});
                 try self.setWindowsPaletteColor(0, v);
-                return 0; // no bits for black, which is the palette color we overwrote
             },
-        };
+        }
         // TODO: when you gotta deal with RGB use this https://stackoverflow.com/questions/9509278/rgb-specific-console-text-color-c
 
         // Background colors
-        attr |= switch (style.bg_color) {
-            .Default => self.restore_wattributes & 0xF0,
-            .Named16 => |v| getAttributeForNamed16(v) << 4,
+        switch (style.bg_color) {
+            .Default => attr |= self.restore_wattributes & 0xF0,
+            .Named16 => |v| attr |= getAttributeForNamed16(v) << 4,
             .Bit8 => return error.BackendError,
             .Bit24 => |v| {
-                try self.setWindowsPaletteColor(0, v);
-                return 0; // NOTE: a shift left of 4 is going to be optimized away, but one is thought to be here
+                std.log.debug("sending code: {} : ", .{v.code});
+                try self.setWindowsPaletteColor(if (fg_is_rgb) 1 else 0, v);
+                if (fg_is_rgb) attr |= 1 << 4; // Set background as logical Blue instead of Black
+                // std.log.debug("set bg rgb: {}\n", .{v});
             },
-        };
+        }
 
-        // std.log.debug("attr: {}\n", .{attr});
+        switch (style.fg_color) {
+            .Bit24 => |v| std.log.debug("attr: {}", .{attr}),
+            else => {},
+        }
 
         return attr;
     }
@@ -499,10 +514,11 @@ pub const Backend = struct {
         }
 
         var index: u32 = 0;
-        while (index < runes.len) : (index += 1) {
+        while (index < runes.len) : (index += 1) { // TODO: do nothing on newlines
             if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
                 // Update attributes
-                try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Set palette position for 'Black' to black
+                try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Black' to black
+                try self.setWindowsPaletteColor(1, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Blue' to blue
                 if (windows.kernel32.SetConsoleTextAttribute(
                     self.h_console_out_current,
                     try self.getAttribute(styles[index]),
@@ -515,6 +531,7 @@ pub const Backend = struct {
 
             coord.X += 1;
         }
-        try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Set palette position for 'Black' to black
+        try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Reset palette position for 'Black' to black
+        try self.setWindowsPaletteColor(1, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Blue' to blue
     }
 };
