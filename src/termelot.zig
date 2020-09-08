@@ -71,11 +71,11 @@ pub const Termelot = struct {
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
-        if (config.raw_mode) {
-            try self.backend.setRawMode(true);
-        }
         if (config.alternate_screen) {
             try self.backend.setAlternateScreen(true);
+        }
+        if (config.raw_mode) {
+            try self.backend.setRawMode(true);
         }
         self.supported_features = try self.backend.getSupportedFeatures();
         self.cursor_position = try self.backend.getCursorPosition();
@@ -92,11 +92,11 @@ pub const Termelot = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        if (self.config.alternate_screen) {
-            self.backend.setAlternateScreen(false) catch {};
-        }
         if (self.config.raw_mode) {
             self.backend.setRawMode(false) catch {};
+        }
+        if (self.config.alternate_screen) {
+            self.backend.setAlternateScreen(false) catch {};
         }
         self.backend.stop();
         self.screen_buffer.deinit();
