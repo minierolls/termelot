@@ -49,20 +49,6 @@ pub const ColorNamed16 = enum {
     BrightMagenta,
     BrightCyan,
     BrightWhite,
-
-    pub fn isBright(self: @This()) bool {
-        return switch (self) {
-            .BrightBlack => true,
-            .BrightRed => true,
-            .BrightGreen => true,
-            .BrightYellow => true,
-            .BrightBlue => true,
-            .BrightMagenta => true,
-            .BrightCyan => true,
-            .BrightWhite => true,
-            else => false,
-        };
-    }
 };
 
 pub const ColorBit8 = packed struct {
