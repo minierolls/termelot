@@ -29,7 +29,7 @@ pub const Color = union(ColorType) {
 
     /// Create a new Color from a hex code with a ColorBit24.
     pub inline fn hex(code: u24) Color {
-        return Color{ .Bit24 = ColorBit24 { .code = code } };
+        return Color{ .Bit24 = ColorBit24{ .code = code } };
     }
 
     /// Create a new Color from one of 16 color names with a ColorNamed16.
@@ -66,6 +66,8 @@ pub const ColorNamed16 = enum {
     BrightWhite,
 };
 
+/// Color values based on:
+/// [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code)
 pub const ColorBit8 = packed struct {
     code: u8,
 
