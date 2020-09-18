@@ -23,17 +23,17 @@ pub const Color = union(ColorType) {
     Bit24: ColorBit24,
 
     /// Create a new Color from red, green, and blue values with a ColorBit24.
-    pub inline fn RGB(red: u8, green: u8, blue: u8) Color {
+    pub fn RGB(red: u8, green: u8, blue: u8) Color {
         return Color{ .Bit24 = ColorBit24.initRGB(red, green, blue) };
     }
 
     /// Create a new Color from a hex code with a ColorBit24.
-    pub inline fn hex(code: u24) Color {
+    pub fn hex(code: u24) Color {
         return Color{ .Bit24 = ColorBit24{ .code = code } };
     }
 
     /// Create a new Color from one of 16 color names with a ColorNamed16.
-    pub inline fn named(color_named: ColorNamed16) Color {
+    pub fn named(color_named: ColorNamed16) Color {
         return Color{ .Named16 = color_named };
     }
 };
