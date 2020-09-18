@@ -115,6 +115,7 @@ pub const Backend = struct {
     restore_console_mode_out: windows.DWORD,
     restore_console_mode_in: windows.DWORD,
     restore_wattributes: windows.WORD,
+    cached_ansi_escapes_enabled: bool, // For use internally, updated in 
 
     const Self = @This();
 
@@ -148,9 +149,16 @@ pub const Backend = struct {
             .restore_console_mode_out = rcm_out,
             .restore_console_mode_in = rcm_in,
             .restore_wattributes = undefined,
+            .cached_ansi_escapes_enabled = false,
         };
 
-        b.restore_wattributes = (try getScreenBufferInfo(&b)).wAttributes;
+        b.restore_wattributes = (try b.getScreenBufferInfo()).wAttributes;
+        // Attempt to enable ANSI escape sequences while initializing (Windows 10+)
+        b.updateCachedANSIEscapesEnabled() catch {};
+        if (!b.cached_ansi_escapes_enabled) enable: {
+            b.enableANSIEscapeSequences() catch { break :enable; };
+            b.updateCachedANSIEscapesEnabled() catch {}; // Recache
+        }
 
         return b;
     }
@@ -169,17 +177,19 @@ pub const Backend = struct {
 
     /// Retrieve SupportedFeatures struct from this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
+        const ansi = self.cached_ansi_escapes_enabled;
+
         return SupportedFeatures{
             .color_types = .{
                 .Named16 = true,
-                .Bit8 = false,
-                .Bit24 = true,
+                .Bit8 = false, // but they're rounded to Named16
+                .Bit24 = false, // but they're rounded to Named16
             },
             .decorations = Decorations{
-                .bold = false,
-                .italic = false,
-                .underline = false,
-                .blinking = false, // TODO: is blinking possible?
+                .bold = ansi,
+                .italic = ansi,
+                .underline = ansi,
+                .blinking = ansi,
             },
         };
     }
@@ -189,21 +199,63 @@ pub const Backend = struct {
         return self.in_raw_mode;
     }
 
+    /// Checks if the Console modes allow for ANSI escape sequences to be used.
+    fn updateCachedANSIEscapesEnabled(self: *Self) !void {
+        var input_flags: windows.DWORD = undefined;
+        var output_flags: windows.DWORD = undefined;
+        if (windows.kernel32.GetConsoleMode(self.h_console_in, &input_flags) == 0)
+            return error.BackendError;
+        if (windows.kernel32.GetConsoleMode(self.h_console_out_current, &output_flags) == 0)
+            return error.BackendError;
+
+        self.cached_ansi_escapes_enabled = input_flags | ENABLE_VIRTUAL_TERMINAL_INPUT > 0
+            and output_flags | ENABLE_VIRTUAL_TERMINAL_PROCESSING > 0;
+    }
+
+    /// Will attempt to tell Windows that this console evaluates virtual terminal sequences.
+    fn enableANSIEscapeSequences(self: *Self) !void {
+        var input_flags: windows.DWORD = undefined;
+        var output_flags: windows.DWORD = undefined;
+        if (windows.kernel32.GetConsoleMode(self.h_console_in, &input_flags) == 0)
+            return error.BackendError;
+        if (windows.kernel32.GetConsoleMode(self.h_console_out_current, &output_flags) == 0)
+            return error.BackendError;
+
+        input_flags |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+        output_flags |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+
+        if (SetConsoleMode(self.h_console_in, input_flags) == 0)
+            return error.BackendError;
+        if (SetConsoleMode(self.h_console_out_current, output_flags) == 0)
+            return error.BackendError;
+    }
+
     /// Enter/exit raw mode.
     pub fn setRawMode(self: *Self, enabled: bool) !void {
         var old_input_flags: windows.DWORD = undefined;
-        var input_flags: windows.DWORD = undefined;
-
         var old_output_flags: windows.DWORD = undefined;
+
+        if (windows.kernel32.GetConsoleMode(
+            self.h_console_in,
+            &old_input_flags,
+        ) == 0) {
+            return error.BackendError;
+        }
+        if (windows.kernel32.GetConsoleMode(
+            self.h_console_out_current,
+            &old_output_flags,
+        ) == 0) {
+            return error.BackendError;
+        }
+
+        var input_flags: windows.DWORD = undefined;
         var output_flags: windows.DWORD = undefined;
 
         if (enabled) {
             input_flags = ENABLE_EXTENDED_FLAGS |
                 ENABLE_MOUSE_INPUT |
-                ENABLE_WINDOW_INPUT |
-                ENABLE_VIRTUAL_TERMINAL_INPUT;
-            output_flags = ENABLE_VIRTUAL_TERMINAL_PROCESSING |
-                DISABLE_NEWLINE_AUTO_RETURN;
+                ENABLE_WINDOW_INPUT;
+            output_flags = DISABLE_NEWLINE_AUTO_RETURN;
         } else {
             input_flags = ENABLE_ECHO_INPUT |
                 ENABLE_EXTENDED_FLAGS |
@@ -212,36 +264,30 @@ pub const Backend = struct {
                 ENABLE_MOUSE_INPUT |
                 ENABLE_PROCESSED_INPUT |
                 ENABLE_QUICK_EDIT_MODE |
-                ENABLE_WINDOW_INPUT |
-                ENABLE_VIRTUAL_TERMINAL_INPUT;
+                ENABLE_WINDOW_INPUT;
             output_flags = ENABLE_PROCESSED_OUTPUT |
-                ENABLE_WRAP_AT_EOL_OUTPUT |
-                ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                ENABLE_WRAP_AT_EOL_OUTPUT;
         }
 
-        if (windows.kernel32.GetConsoleMode(
-            self.h_console_in,
-            &old_input_flags,
-        ) == 0) {
-            return error.BackendError;
+        // Carry ANSI escape codes support if they were enabled previously
+        if (old_input_flags & ENABLE_VIRTUAL_TERMINAL_INPUT != 0
+            and old_output_flags & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0) {
+            input_flags |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+            output_flags |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
         }
+
         if (SetConsoleMode(self.h_console_in, input_flags) == 0) {
             return error.BackendError;
         }
-        errdefer _ = SetConsoleMode(self.h_console_in, old_input_flags);
+        errdefer _ = SetConsoleMode(self.h_console_in, old_input_flags); // Reset flags
 
-        if (windows.kernel32.GetConsoleMode(
-            self.h_console_out_current,
-            &old_output_flags,
-        ) == 0) {
-            return error.BackendError;
-        }
         if (SetConsoleMode(
             self.h_console_out_current,
             output_flags,
         ) == 0) {
             return error.BackendError;
         }
+        errdefer _ = SetConsoleMode(self.h_console_in, old_output_flags); // Reset flags
         self.in_raw_mode = enabled;
     }
 
@@ -439,9 +485,16 @@ pub const Backend = struct {
 
     /// Translates the TermCon Style into a Windows console attribute.
     fn getAttribute(self: *Self, style: Style) !windows.WORD {
-        if (style.decorations.italic or style.decorations.bold or style.decorations.underline or style.decorations.blinking) {
-            // TODO: support text decorations via ANSI escape codes with ENABLE_VIRTUAL_TERMINAL_PROCESSING console mode flag
-            return error.BackendError; // Windows console API does not support text decorations, but using ANSI backend on Powershell and other editors on Windows works with text decorations.
+        if (self.cached_ansi_escapes_enabled) {
+            if (style.decorations.bold) {
+                try self.WriteConsole("\x1b[1m", null);
+            }
+            if (style.decorations.italic) {
+                try self.WriteConsole("\x1b[3m", null); // Italics unsupported on Windows consoles, but we may as well try
+            }
+            if (style.decorations.underline) {
+                try self.WriteConsole("\x1b[4m", null);
+            }
         }
 
         var attr = @as(windows.WORD, 0);
