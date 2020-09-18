@@ -175,6 +175,11 @@ pub const Backend = struct {
         _ = windows.kernel32.SetConsoleTextAttribute(self.h_console_out_main, self.restore_wattributes);
     }
 
+    fn WriteConsole(self: *Self, buffer: []const Rune, chars_written: ?windows.LPDWORD) !void { // TODO: update function to support UTF-16 (when sizeof Rune is UTF-16)
+        if (WriteConsoleA(self.h_console_out_current, buffer.ptr, @intCast(windows.DWORD, buffer.len), chars_written, null) == 0)
+            return error.BackendError;
+    }
+
     /// Retrieve SupportedFeatures struct from this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
         const ansi = self.cached_ansi_escapes_enabled;
@@ -343,7 +348,7 @@ pub const Backend = struct {
 
     fn getScreenBufferInfo(
         self: *Self,
-    ) !windows.CONSOLE_SCREEN_BUFFER_INFO { // TODO: make this suitable for inlining
+    ) !windows.CONSOLE_SCREEN_BUFFER_INFO {
         var csbi: windows.CONSOLE_SCREEN_BUFFER_INFO = undefined;
         if (windows.kernel32.GetConsoleScreenBufferInfo(
             self.h_console_out_current,
@@ -400,7 +405,7 @@ pub const Backend = struct {
     }
 
     /// Convert any Windows COORD (FROM screen space) TO buffer space.
-    pub inline fn coordToBufferSpace(self: *Self, coord: windows.COORD) !windows.COORD {
+    pub fn coordToBufferSpace(self: *Self, coord: windows.COORD) !windows.COORD {
         const csbi = try self.getScreenBufferInfo();
         return windows.COORD{
             .Y = coord.Y + csbi.srWindow.Top,
@@ -409,7 +414,7 @@ pub const Backend = struct {
     }
 
     /// Convert any Windows COORD (FROM buffer space) TO screen space.
-    pub inline fn coordToScreenSpace(self: *Self, coord: windows.COORD) !windows.COORD {
+    pub fn coordToScreenSpace(self: *Self, coord: windows.COORD) !windows.COORD {
         const csbi = try self.getScreenBufferInfo();
         return windows.COORD{
             .Y = coord.Y - csbi.srWindow.Top,
@@ -446,7 +451,7 @@ pub const Backend = struct {
     /// Get a 4-bit Windows color attribute from a Named16.
     fn getAttributeForNamed16(color: ColorNamed16) windows.WORD {
         return switch (color) {
-            .Black, .BrightBlack => 0,
+            .Black => 0,
             .Blue => 1,
             .Green => 2,
             .Cyan => 3,
@@ -454,7 +459,7 @@ pub const Backend = struct {
             .Magenta => 5,
             .Yellow => 6,
             .White => 7,
-            //.Grey => 8,
+            .BrightBlack => 8,
             .BrightBlue => 9,
             .BrightGreen => 0xA,
             .BrightCyan => 0xB,
@@ -465,22 +470,44 @@ pub const Backend = struct {
         };
     }
 
-    pub fn setWindowsPaletteColor(self: *Self, idx: usize, color: ColorBit24) !void {
-        std.debug.assert(idx >= 0 and idx < 16);
+    fn roundBit8ToNamed16(bit8: ColorBit8) ColorNamed16 {
+        @compileError("unimplemented");
+    }
 
-        var csbi_ex: CONSOLE_SCREEN_BUFFER_INFOEX = undefined;
-        csbi_ex.cbSize = @sizeOf(CONSOLE_SCREEN_BUFFER_INFOEX);
-        if (GetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
-            return error.BackendError;
+    // ColorBit24's in the order of ColorNamed16's.
+    const colors_bit24 = [16]ColorBit24 {
+        .{ .code = 0x0 }, .{ .code = 0x800000 }, .{ .code = 0x8000 },
+        .{ .code = 0x808000 }, .{ .code = 0x80 }, .{ .code = 0x800080 },
+        .{ .code = 0x8080 }, .{ .code = 0xC0C0C0 }, .{ .code = 0x808080 },
+        .{ .code = 0xFF0000 }, .{ .code = 0xFF00 }, .{ .code = 0xFFFF00 },
+        .{ .code = 0xFF }, .{ .code = 0xFF00FF }, .{ .code = 0xFFFF },
+        .{ .code = 0xFFFFFF },
+    };
 
-        // TODO: COLORREF are in blue,green,red which is opposite of this library's format
-        csbi_ex.ColorTable[idx] = @intCast(COLORREF, color.code);
+    fn sqr(x: i32) i32 {
+        return x * x;
+    }
 
-        csbi_ex.srWindow.Right += 1; // SetCons..Ex interprets as width, Get sets as index, so 1 is subtracted after every call to Set...
-        csbi_ex.srWindow.Bottom += 1; // It's probably an old bug in Windows kernel that shouldn't be fixed...
+    fn roundBit24ToNamed16(c: ColorBit24) ColorNamed16 {
+        const r = @intCast(i32, c.red());
+        const g = @intCast(i32, c.green());
+        const b = @intCast(i32, c.blue());
 
-        if (SetConsoleScreenBufferInfoEx(self.h_console_out_current, &csbi_ex) == 0)
-            return error.BackendError;
+        var closest_idx: u5 = 0; // Index of the closest color found
+        var closest_distance_sqr: i32 = std.math.maxInt(i32); // Squared numerical distance from aforementioned closest color
+
+        var i: u5 = 0;
+        while (i < colors_bit24.len) : (i += 1) {
+            const c2 = colors_bit24[i];
+
+            const dist_sqr = sqr(r - @intCast(i32, c2.red())) + sqr(g - @intCast(i32, c2.green())) + sqr(b - @intCast(i32, c2.blue())); // Square all differences
+            if (dist_sqr < closest_distance_sqr) {
+                closest_idx = i;
+                closest_distance_sqr = dist_sqr;
+            }
+        }
+
+        return @intToEnum(ColorNamed16, @intCast(u4, closest_idx));
     }
 
     /// Translates the TermCon Style into a Windows console attribute.
@@ -502,33 +529,18 @@ pub const Backend = struct {
 
         // Foreground colors
         switch (style.fg_color) {
-            .Default => attr |= self.restore_wattributes & 0x0F,
+            .Default => attr |= self.restore_wattributes & 0xF,
             .Named16 => |v| attr |= getAttributeForNamed16(v),
-            .Bit8 => return error.BackendError,
-            .Bit24 => |v| {
-                fg_is_rgb = true;
-                std.log.debug("sending code: {} : ", .{v.code});
-                try self.setWindowsPaletteColor(0, v);
-            },
+            .Bit8 => return error.BackendError, // TODO: Round received bit8 to nearest color on 16 color palette
+            .Bit24 => |v| attr |= getAttributeForNamed16(roundBit24ToNamed16(v)),
         }
-        // TODO: when you gotta deal with RGB use this https://stackoverflow.com/questions/9509278/rgb-specific-console-text-color-c
 
         // Background colors
         switch (style.bg_color) {
             .Default => attr |= self.restore_wattributes & 0xF0,
             .Named16 => |v| attr |= getAttributeForNamed16(v) << 4,
-            .Bit8 => return error.BackendError,
-            .Bit24 => |v| {
-                std.log.debug("sending code: {} : ", .{v.code});
-                try self.setWindowsPaletteColor(if (fg_is_rgb) 1 else 0, v);
-                if (fg_is_rgb) attr |= 1 << 4; // Set background as logical Blue instead of Black
-                // std.log.debug("set bg rgb: {}\n", .{v});
-            },
-        }
-
-        switch (style.fg_color) {
-            .Bit24 => |v| std.log.debug("attr: {}", .{attr}),
-            else => {},
+            .Bit8 => return error.BackendError, // TODO: Round received bit8 to nearest color on 16 color palette
+            .Bit24 => |v| attr |= getAttributeForNamed16(roundBit24ToNamed16(v)) << 4,
         }
 
         return attr;
@@ -557,12 +569,6 @@ pub const Backend = struct {
             self.h_console_out_current,
             coord,
         ) == 0) {
-            std.log.emerg(
-                "Coord: ({}, {}), srWindow(L: {}, T: {}, R: {}, B: {}), GetLastError() = {}\r\n",
-                .{coord.X, coord.Y,
-                csbi.srWindow.Left, csbi.srWindow.Top, csbi.srWindow.Right, csbi.srWindow.Bottom,
-                windows.kernel32.GetLastError()},
-            );
             return error.BackendError;
         }
 
@@ -570,8 +576,6 @@ pub const Backend = struct {
         while (index < runes.len) : (index += 1) { // TODO: do nothing on newlines
             if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
                 // Update attributes
-                try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Black' to black
-                try self.setWindowsPaletteColor(1, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Blue' to blue
                 if (windows.kernel32.SetConsoleTextAttribute(
                     self.h_console_out_current,
                     try self.getAttribute(styles[index]),
@@ -579,12 +583,9 @@ pub const Backend = struct {
                     return error.BackendError;
             }
 
-            if (WriteConsoleA(self.h_console_out_current, &runes[index], 1, null, null) == 0)
-                return error.BackendError;
+            try self.WriteConsole(runes[index..index+1], null);
 
             coord.X += 1;
         }
-        try self.setWindowsPaletteColor(0, ColorBit24{ .code = 0 }); // Reset palette position for 'Black' to black
-        try self.setWindowsPaletteColor(1, ColorBit24{ .code = 0xFF0000 }); // Reset palette position for 'Blue' to blue
     }
 };
