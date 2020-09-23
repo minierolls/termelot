@@ -10,9 +10,10 @@ const Size = termelot.Size;
 /// A self-contained Event handler. The i64 parameter is for thread synchronization,
 /// and it is milliseconds since Unix Epoch. The callback function will be executed
 /// from a secondary thread when handling events. The time parameter is provided for
-/// synchronization. Don't forget about data races!
+/// synchronization. It is up to the user to prevent data races if the callback modifies
+/// shared state through its context.
 ///
-/// **context**: A pointer-as-an-int reference to a global or allocated resource
+/// **context**: A pointer-as-an-int to a resource accessed by the callback function.
 /// the function needs to know about when called.
 /// **callback**: The function that will be handling events.
 pub const EventCallback = struct {
@@ -28,7 +29,7 @@ pub const EventCallback = struct {
     }
 };
 
-/// An Event can be either a KeyEvent, MouseEvent, or a resize signal.
+/// An Event can be a KeyEvent, MouseEvent, or a new terminal size.
 /// You can switch on an Event to get its type:
 /// ```zig
 /// switch (event) {
@@ -60,7 +61,7 @@ pub const EventType = enum {
 pub const KeyEvent = struct {
     value: KeyValue,
     state: KeyState,
-    modifier: ?Modifier,
+    modifier: ?KeyModifier,
     repeated: bool,
 };
 
@@ -88,7 +89,7 @@ pub const KeyType = enum {
 ///     // An alt key has been pressed ...
 /// }
 /// ```
-pub const Modifier = enum(u7) {
+pub const KeyModifier = enum(u7) {
     Shift = 0b1,
     Alt = 0b10,
     RightAlt = 0b100,
@@ -96,7 +97,7 @@ pub const Modifier = enum(u7) {
     RightCtrl = 0b10000,
     Meta = 0b100000,
     Function = 0b1000000,
-    _
+    _,
 };
 
 /// **Down**: The key has just been pressed and has not been released yet.
@@ -146,11 +147,13 @@ pub const MouseEvent = struct {
     position: Position,
     action: MouseAction,
     button: ?MouseButton,
+    modifier: ?Modifier,
 };
 
 pub const MouseAction = enum {
     Click,
     DoubleClick,
+    TripleClick,
     ScrollUp,
     ScrollDown,
     HScrollLeft, // Pushing scroll wheel to the left
