@@ -638,7 +638,7 @@ pub const Backend = struct {
             .bVisible = if (visible) 1 else 0,
         };
         if (SetConsoleCursorInfo(
-            self.h_console_out_current,
+            self.h_console_out_main, // Handle has to be main screen buffer for some reason ...
             &cursor_info,
         ) == 0) {
             return error.BackendError;
