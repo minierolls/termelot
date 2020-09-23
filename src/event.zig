@@ -147,7 +147,7 @@ pub const MouseEvent = struct {
     position: Position,
     action: MouseAction,
     button: ?MouseButton,
-    modifier: ?Modifier,
+    modifier: ?KeyModifier,
 };
 
 pub const MouseAction = enum {
