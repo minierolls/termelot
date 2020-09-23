@@ -7,8 +7,8 @@ const termelot = @import("../termelot.zig");
 const Position = termelot.Position;
 
 pub const Callback = struct {
-    context: *Context,
-    callback: fn (*Context, Event) void,
+    context: ?*Context,
+    callback: fn (?*Context, Event) void,
 
     const Self = @This();
     const Context = @Type(.Opaque);
@@ -29,7 +29,7 @@ pub const Action = enum {
     ScrollUp,
     ScrollDown,
     Click,
-    // DoubleClick, // TODO: Decide whether this should be handled by library or backend
+    DoubleClick,
     // TripleClick,
 };
 

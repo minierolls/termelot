@@ -44,6 +44,51 @@ extern "kernel32" fn CreateConsoleScreenBuffer(
     lpScreenBufferData: ?windows.LPVOID,
 ) callconv(.Stdcall) windows.HANDLE;
 
+extern "kernel32" fn CreateFileA(
+    lpFileName: windows.LPCSTR,
+    dwDesiredAccess: windows.DWORD,
+    dwShareMode: windows.DWORD,
+    lpSecurityAttributes: ?*const windows.SECURITY_ATTRIBUTES,
+    dwCreationDisposition: windows.DWORD,
+    dwFlagsAndAttributes: windows.DWORD,
+    hTemplateFile: ?windows.HANDLE,
+) callconv(.Stdcall) windows.HANDLE;
+
+const FOCUS_EVENT_RECORD = extern struct {
+    bSetFocus: bool,
+};
+
+// For KeyEvent
+const CAPSLOCK_ON: windows.DWORD = 0x0080;
+const ENHANCED_KEY: windows.DWORD = 0x0100;
+const LEFT_ALT_PRESSED: windows.DWORD = 0x0002;
+const LEFT_CTRL_PRESSED: windows.DWORD = 0x0008;
+const NUMLOCK_ON: windows.DWORD = 0x0020;
+const RIGHT_ALT_PRESSED: windows.DWORD = 0x0001;
+const RIGHT_CTRL_PRESSED: windows.DWORD = 0x0004;
+const SCROLLLOCK_ON: windows.DWORD = 0x0040;
+const SHIFT_PRESSED: windows.DWORD = 0x0010;
+
+// For MouseEvent
+const DOUBLE_CLICK: windows.DWORD = 0x0002;
+const MOUSE_HWHEELED: windows.DWORD = 0x0008;
+const MOUSE_MOVED: windows.DWORD = 0x0001;
+const MOUSE_WHEELED: windows.DWORD = 0x0004;
+
+// For EventType and InputEvent
+const FOCUS_EVENT: windows.DWORD = 0x0010;
+const KEY_EVENT: windows.DWORD = 0x0001;
+const MENU_EVENT: windows.DWORD = 0x0008;
+const MOUSE_EVENT: windows.DWORD = 0x0002;
+const WINDOW_BUFFER_SIZE_EVENT: windows.DWORD = 0x0004;
+
+// For MouseEvent button
+const FROM_LEFT_1ST_BUTTON_PRESSED: windows.DWORD = 0x0001;
+const FROM_LEFT_2ND_BUTTON_PRESSED: windows.DWORD = 0x0004;
+const FROM_LEFT_3RD_BUTTON_PRESSED: windows.DWORD = 0x0008;
+const FROM_LEFT_4TH_BUTTON_PRESSED: windows.DWORD = 0x0010;
+const RIGHTMOST_BUTTON_PRESSED: windows.DWORD = 0x0002;
+
 extern "kernel32" fn GetConsoleCursorInfo(
     hConsoleOutput: windows.HANDLE,
     lpConsoleCursorInfo: *CONSOLE_CURSOR_INFO,
@@ -52,6 +97,52 @@ extern "kernel32" fn GetConsoleCursorInfo(
 extern "kernel32" fn GetConsoleScreenBufferInfoEx(
     hConsoleOutput: windows.HANDLE,
     lpConsoleScreenBufferInfoEx: *CONSOLE_SCREEN_BUFFER_INFOEX,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn GetNumberOfConsoleInputEvents(
+    hConsoleInput: windows.HANDLE,
+    lpcNumberOfEvents: windows.LPDWORD,
+) callconv(.Stdcall) windows.BOOL;
+
+const INPUT_RECORD = extern struct {
+    EventType: windows.DWORD,
+    Event: extern union {
+        KeyEvent: KEY_EVENT_RECORD,
+        MouseEvent: MOUSE_EVENT_RECORD,
+        WindowBufferSizeEvent: WINDOW_BUFFER_SIZE_RECORD,
+        MenuEvent: MENU_EVENT_RECORD,
+        FocusEvent: FOCUS_EVENT_RECORD,
+    },
+};
+
+const KEY_EVENT_RECORD = extern struct {
+    bKeyDown: windows.BOOL,
+    wRepeatCount: windows.WORD,
+    wVirtualKeyCode: windows.WORD,
+    wVirtualScanCode: windows.WORD,
+    uChar: extern union {
+        UnicodeChar: windows.WCHAR,
+        AsciiChar: windows.CHAR,
+    },
+    dwControlKeyState: windows.DWORD,
+};
+
+const MENU_EVENT_RECORD = extern struct {
+    dwCommandId: windows.UINT,
+};
+
+const MOUSE_EVENT_RECORD = extern struct {
+    dwMousePosition: windows.COORD,
+    dwButtonState: windows.DWORD,
+    dwControlKeyState: windows.DWORD,
+    dwEventFlags: windows.DWORD,
+};
+
+extern "kernel32" fn ReadConsoleInputA(
+    hConsoleInput: windows.HANDLE,
+    lpBuffer: [*]INPUT_RECORD,
+    nLength: windows.DWORD,
+    lpNumberOfEventsRead: ?windows.LPDWORD,
 ) callconv(.Stdcall) windows.BOOL;
 
 extern "kernel32" fn SetConsoleActiveScreenBuffer(
@@ -76,6 +167,11 @@ extern "kernel32" fn SetConsoleScreenBufferInfoEx(
 extern "kernel32" fn SetConsoleTitleA(
     lpConsoleTitle: windows.LPCTSTR,
 ) callconv(.Stdcall) windows.BOOL;
+
+const WINDOW_BUFFER_SIZE_RECORD = extern struct {
+    dwSize: windows.COORD,
+};
+const WindowBufferSizeEvent = WINDOW_BUFFER_SIZE_RECORD;
 
 extern "kernel32" fn WriteConsoleA(
     hConsoleOutput: windows.HANDLE,
@@ -106,6 +202,7 @@ const DISABLE_NEWLINE_AUTO_RETURN: windows.DWORD = 0x0008;
 const ENABLE_LVB_GRID_WORLDWIDE: windows.DWORD = 0x0010;
 
 pub const Backend = struct {
+    termelot: *Termelot,
     allocator: *std.mem.Allocator,
     h_console_out_main: windows.HANDLE,
     h_console_out_current: windows.HANDLE,
@@ -115,7 +212,9 @@ pub const Backend = struct {
     restore_console_mode_out: windows.DWORD,
     restore_console_mode_in: windows.DWORD,
     restore_wattributes: windows.WORD,
-    cached_ansi_escapes_enabled: bool, // For use internally, updated in 
+    cached_ansi_escapes_enabled: bool, // For use internally
+    input_thread: ?*std.Thread,
+    input_thread_running: bool,
 
     const Self = @This();
 
@@ -127,7 +226,18 @@ pub const Backend = struct {
     ) !Backend {
         // Get console handles
         const out_main = try windows.GetStdHandle(windows.STD_OUTPUT_HANDLE);
-        const in_main = try windows.GetStdHandle(windows.STD_INPUT_HANDLE);
+        const in_main = CreateFileA(
+            "CONIN$",
+            windows.GENERIC_READ | windows.GENERIC_WRITE,
+            windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE,
+            null,
+            windows.OPEN_EXISTING,
+            windows.FILE_ATTRIBUTE_NORMAL,
+            null);
+        
+        if (in_main == windows.INVALID_HANDLE_VALUE) {
+            return error.BackendError;
+        }
 
         // Set restore values
         var rcm_out: windows.DWORD = undefined;
@@ -140,6 +250,7 @@ pub const Backend = struct {
         }
 
         var b = Backend{
+            .termelot = termelot,
             .allocator = allocator,
             .h_console_out_main = out_main,
             .h_console_out_current = out_main,
@@ -150,6 +261,8 @@ pub const Backend = struct {
             .restore_console_mode_in = rcm_in,
             .restore_wattributes = undefined,
             .cached_ansi_escapes_enabled = false,
+            .input_thread = null,
+            .input_thread_running = false,
         };
 
         b.restore_wattributes = (try b.getScreenBufferInfo()).wAttributes;
@@ -165,6 +278,7 @@ pub const Backend = struct {
 
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
+        defer _ = windows.kernel32.CloseHandle(self.h_console_in);
         defer _ = windows.kernel32.CloseHandle(self.h_console_out_main);
         if (self.h_console_out_alt) |handle| {
             _ = windows.kernel32.CloseHandle(handle);
@@ -334,16 +448,99 @@ pub const Backend = struct {
         }
     }
 
+    /// This is the only function that runs on another thread.
+    fn inputHandler(self: *Self) !void {
+        var input_buffer_arr: [8]INPUT_RECORD = undefined;
+        var input_buffer_len = @as(windows.DWORD, 0);
+        while (self.input_thread_running) { // TODO: consider healthy amt of time to sleep
+            var events_to_read = @as(windows.DWORD, 0);
+            if (GetNumberOfConsoleInputEvents(self.h_console_in, &events_to_read) == 0)
+                return error.BackendError;
+            
+            if (events_to_read > 0) {
+                // Gather events into buffer
+                if (ReadConsoleInputA(self.h_console_in, &input_buffer_arr, 8, &input_buffer_len) == 0) {
+                    std.log.crit("ReadConsoleInputA failed\n", .{});
+                    return error.BackendError;
+                }
+
+                // Translate all events to termelot equivalent
+                var i: usize = 0;
+                while (i < input_buffer_len) : (i += 1) {
+                    const record: INPUT_RECORD = input_buffer_arr[i];
+                    switch (record.EventType) {
+                        WINDOW_BUFFER_SIZE_EVENT => self.termelot.setScreenSize(try self.getScreenSize()),
+                        MOUSE_EVENT => { // TODO: handle mouse moved and send only mouse pos
+                            const mouse = record.Event.MouseEvent;
+                            const pos = mouse.dwMousePosition;
+                            self.termelot.callMouseCallbacks(termelot_import.event.mouse.Event {
+                                .position = Position { .row = @intCast(u16, pos.Y), .col = @intCast(u16, pos.X) },
+                                .time = 0, // TODO: ???
+                                .action = action: {
+                                    if (mouse.dwEventFlags == DOUBLE_CLICK) {
+                                        break :action .DoubleClick;
+                                    }
+                                    if (mouse.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
+                                        break :action .Click;
+                                    }
+                                    if (mouse.dwEventFlags == MOUSE_WHEELED) {
+                                        if (mouse.dwButtonState & 0xFFFF > 0) {
+                                            break :action .ScrollUp;
+                                        } else {
+                                            break :action .ScrollDown;
+                                        }
+                                    }
+                                    continue; // No valid action... skip the event
+                                },
+                                .button = button: {
+                                    switch (mouse.dwButtonState) {
+                                        FROM_LEFT_1ST_BUTTON_PRESSED => break :button .Main,
+                                        FROM_LEFT_2ND_BUTTON_PRESSED => break :button .Secondary,
+                                        FROM_LEFT_3RD_BUTTON_PRESSED => break :button .Auxiliary,
+                                        FROM_LEFT_4TH_BUTTON_PRESSED => break :button .Fourth,
+                                        RIGHTMOST_BUTTON_PRESSED => break :button .Fifth,
+                                        else => break :button null,
+                                    }
+                                },
+                            });
+                        },
+                        KEY_EVENT => {
+                            const key = record.Event.KeyEvent;
+                            if (key.bKeyDown == 0) continue; // TODO: handle key up events in library
+                            self.termelot.callKeyCallbacks(termelot_import.event.key.Event {
+                                .value = value: {
+                                    break :value .{ .AlphaNumeric = key.uChar.AsciiChar };
+                                },
+                                .modifier = modifier: {
+                                    break :modifier null;
+                                },
+                            });
+                        },
+                        else => continue, // FOCUS_EVENT or MENU_EVENT (MSDN docs say to ignore)
+                    }
+                    
+                    // Send each event to user of termelot library's callbacks
+                    // self.termelot.callKeyCallbacks(termelot_import.event.key.Event { .value = .{ .AlphaNumeric = 'a' }, .modifier = null });
+                }
+                input_buffer_len = 0;
+            }
+        }
+    }
+
     /// Start event/signal handling loop, non-blocking immediate return.
     pub fn start(self: *Self) !void {
         // This function should call necessary functions for screen size
         // update, key event callbacks, and mouse event callbacks.
-        // @compileError("Unimplemented");
+        self.input_thread_running = true;
+        self.input_thread = try std.Thread.spawn(self, Backend.inputHandler);
     }
 
     /// Stop event/signal handling loop.
     pub fn stop(self: *Self) void {
-        // @compileError("Unimplemented");
+        if (self.input_thread) |thread| {
+            self.input_thread_running = false;
+            thread.wait();
+        }
     }
 
     fn getScreenBufferInfo(
@@ -474,7 +671,8 @@ pub const Backend = struct {
         @compileError("unimplemented");
     }
 
-    // ColorBit24's in the order of ColorNamed16's.
+    // ColorBit24's in the order of ColorNamed16's. These RGB values are
+    // the default colors of the Windows Command Prompt.
     const colors_bit24 = [16]ColorBit24 {
         .{ .code = 0x0 }, .{ .code = 0x800000 }, .{ .code = 0x8000 },
         .{ .code = 0x808000 }, .{ .code = 0x80 }, .{ .code = 0x800080 },

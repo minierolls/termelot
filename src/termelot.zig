@@ -112,7 +112,11 @@ pub const Termelot = struct {
         self.screen_size = screen_size;
     }
 
-    pub fn callKeyCallbacks(self: Self) void {}
+    pub fn callKeyCallbacks(self: Self, e: event.key.Event) void {
+        for (self.key_callbacks.items) |callback| {
+            callback.call(e);
+        }
+    }
     pub fn registerKeyCallback(
         self: *Self,
         key_callback: event.key.Callback,
@@ -140,7 +144,11 @@ pub const Termelot = struct {
         }
     }
 
-    pub fn callMouseCallbacks(self: Self) void {}
+    pub fn callMouseCallbacks(self: Self, e: event.mouse.Event) void {
+        for (self.mouse_callbacks.items) |callback| {
+            callback.call(e);
+        }
+    }
     pub fn registerMouseCallback(
         self: *Self,
         mouse_callback: event.mouse.Callback,

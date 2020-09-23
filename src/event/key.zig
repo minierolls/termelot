@@ -7,11 +7,10 @@ const termelot = @import("../termelot.zig");
 const Rune = termelot.Rune;
 
 pub const Callback = struct {
-    context: *Context,
-    callback: fn (*Context, Event) void,
+    context: usize,
+    callback: fn (usize, Event) void,
 
     const Self = @This();
-    const Context = @Type(.Opaque);
 
     pub fn call(self: Self, event: Event) void {
         self.callback(self.context, event);
