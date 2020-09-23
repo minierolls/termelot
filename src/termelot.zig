@@ -45,8 +45,7 @@ pub const Termelot = struct {
     config: Config,
     supported_features: SupportedFeatures,
     allocator: *std.mem.Allocator,
-    key_callbacks: std.ArrayList(event.key.Callback),
-    mouse_callbacks: std.ArrayList(event.mouse.Callback),
+    callbacks: std.ArrayList(event.EventCallback),
     cursor_position: Position,
     cursor_visible: bool,
     screen_size: Size,
@@ -64,10 +63,8 @@ pub const Termelot = struct {
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {
-        self.key_callbacks = std.ArrayList(event.key.Callback).init(allocator);
-        errdefer self.key_callbacks.deinit();
-        self.mouse_callbacks = std.ArrayList(event.mouse.Callback).init(allocator);
-        errdefer self.mouse_callbacks.deinit();
+        self.callbacks = std.ArrayList(event.EventCallback).initCapacity(allocator, 1);
+        errdefer self.callbacks.deinit();
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
@@ -101,8 +98,7 @@ pub const Termelot = struct {
         self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();
-        self.key_callbacks.deinit();
-        self.mouse_callbacks.deinit();
+        self.callbacks.deinit();
     }
 
     /// Set the Termelot-aware screen size. This does NOT resize the physical
@@ -112,59 +108,36 @@ pub const Termelot = struct {
         self.screen_size = screen_size;
     }
 
-    pub fn callKeyCallbacks(self: Self) void {}
-    pub fn registerKeyCallback(
+    pub fn callCallbacks(self: Self, e: event.Event) void {
+        const time = std.time.milliTimestamp();
+        for (self.callbacks.items) |callback| {
+            callback.call(e, time);
+        }
+    }
+    pub fn registerCallback(
         self: *Self,
-        key_callback: event.key.Callback,
+        new_callback: event.EventCallback,
     ) !void {
-        for (self.key_callbacks.items) |callback| {
-            if (std.meta.eql(callback, key_callback)) {
+        for (self.callbacks.items) |callback| {
+            if (std.meta.eql(callback, new_callback)) {
                 return;
             }
         }
-        try self.key_callbacks.append(key_callback);
+        try self.callbacks.append(new_callback);
     }
-    pub fn deregisterKeyCallback(
+    pub fn deleteCallback(
         self: *Self,
-        key_callback: event.key.Callback,
+        del_callback: event.EventCallback,
     ) void {
-        var remove_index: usize = self.key_callbacks.items.len;
-        for (self.key_callbacks.items) |callback, index| {
-            if (std.meta.eql(callback, key_callback)) {
+        var remove_index: usize = self.callbacks.items.len;
+        for (self.callbacks.items) |callback, index| {
+            if (std.meta.eql(callback, del_callback)) {
                 remove_index = index;
                 break;
             }
         }
-        if (remove_index < self.key_callbacks.items.len) {
-            _ = self.key_callbacks.orderedRemove(remove_index);
-        }
-    }
-
-    pub fn callMouseCallbacks(self: Self) void {}
-    pub fn registerMouseCallback(
-        self: *Self,
-        mouse_callback: event.mouse.Callback,
-    ) !void {
-        for (self.mouse_callbacks.items) |callback| {
-            if (std.meta.eql(callback, mouse_callback)) {
-                return;
-            }
-        }
-        try self.mouse_callbacks.append(mouse_callback);
-    }
-    pub fn deregisterMouseCallback(
-        self: *Self,
-        mouse_callback: event.mouse.Callback,
-    ) void {
-        var remove_index: usize = self.mouse_callbacks.items.len;
-        for (self.mouse_callbacks.items) |callback, index| {
-            if (std.meta.eql(callback, mouse_callback)) {
-                remove_index = index;
-                break;
-            }
-        }
-        if (remove_index < self.mouse_callbacks.items.len) {
-            _ = self.mouse_callbacks.orderedRemove(remove_index);
+        if (remove_index < self.callbacks.items.len) {
+            _ = self.callbacks.orderedRemove(remove_index);
         }
     }
 
