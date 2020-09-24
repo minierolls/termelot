@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MIT
 // This file is part of the Termelot project under the MIT license.
 
-const termelot = @import("../termelot.zig");
+const termelot = @import("termelot.zig");
+const Position = termelot.Position;
 const Rune = termelot.Rune;
 const Size = termelot.Size;
 
