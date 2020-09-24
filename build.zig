@@ -56,4 +56,16 @@ pub fn build(b: *Builder) !void {
 
     const donut_run_step = b.step("donut", "Run the `donut` example");
     donut_run_step.dependOn(&donut_run_cmd.step);
+
+    var termelot_example = b.addExecutable("termelot", "examples/termelot.zig");
+    termelot_example.setBuildMode(mode);
+    termelot_example.setTarget(target);
+    termelot_example.setOutputDir(examples_output_path);
+    termelot_example.addPackagePath("termelot", "src/termelot.zig");
+    termelot_example.linkLibC();
+
+    const termelot_example_run_cmd = termelot_example.run();
+
+    const termelot_example_run_step = b.step("termelot", "Run the `termelot` example");
+    termelot_example_run_step.dependOn(&termelot_example_run_cmd.step);
 }
