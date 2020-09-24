@@ -61,7 +61,7 @@ pub const EventType = enum {
 pub const KeyEvent = struct {
     value: KeyValue,
     state: KeyState,
-    modifier: ?KeyModifier,
+    modifier: KeyModifier,
     repeated: bool,
 };
 
@@ -87,6 +87,8 @@ pub const KeyType = enum {
 /// ```zig
 /// if (modifier & Modifier.Alt > 0 or modifier & Modifier.RightAlt > 0) {
 ///     // An alt key has been pressed ...
+/// } else if (modifier == 0) {
+///     // No modifier key was pressed
 /// }
 /// ```
 pub const KeyModifier = enum(u7) {
@@ -147,7 +149,7 @@ pub const MouseEvent = struct {
     position: Position,
     action: MouseAction,
     button: ?MouseButton,
-    modifier: ?KeyModifier,
+    modifier: KeyModifier,
 };
 
 pub const MouseAction = enum {
