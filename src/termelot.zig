@@ -63,7 +63,7 @@ pub const Termelot = struct {
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {
-        self.callbacks = std.ArrayList(event.EventCallback).initCapacity(allocator, 1);
+        self.callbacks = std.ArrayList(event.EventCallback).init(allocator);
         errdefer self.callbacks.deinit();
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
@@ -161,10 +161,9 @@ pub const Termelot = struct {
         try self.setCursorPosition(orig_cursor_position);
     }
 
-    pub fn clearScreen(self: *Self) !void {
-        const orig_cursor_position = self.cursor_position;
+    /// Clears the screen buffer for next draw.
+    pub fn clearScreen(self: *Self) void {
         self.screen_buffer.clear();
-        try self.setCursorPosition(orig_cursor_position);
     }
 
     pub fn getCell(self: Self, position: Position) ?Cell {

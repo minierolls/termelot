@@ -42,7 +42,7 @@ pub fn main() !void {
     var B: f32 = 0.0;
 
     while (true) {
-        try term.clearScreen();
+        term.clearScreen();
         A += 0.02;
         B += 0.01;
         const sin_A = std.math.sin(A);
