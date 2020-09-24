@@ -7,6 +7,19 @@ pub const Style = struct {
     fg_color: Color,
     bg_color: Color,
     decorations: Decorations,
+
+    pub fn default() Style {
+        return Style{
+            .fg_color = Color.Default,
+            .bg_color = Color.Default,
+            .decorations = Decorations{
+                .bold = false,
+                .italic = false,
+                .underline = false,
+                .blinking = false,
+            },
+        };
+    }
 };
 
 pub const Decorations = packed struct {
@@ -14,6 +27,15 @@ pub const Decorations = packed struct {
     italic: bool,
     underline: bool,
     blinking: bool,
+
+    pub fn none() Decorations {
+        return Decorations{
+            .bold = false,
+            .italic = false,
+            .underline = false,
+            .blinking = false,
+        };
+    }
 };
 
 pub const Color = union(ColorType) {
