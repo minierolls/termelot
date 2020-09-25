@@ -22,11 +22,12 @@ pub fn main() !void {
         .alternate_screen = true,
     };
 
+    // Initialize Termelot
     var term: termelot.Termelot = undefined;
     try term.init(&gpa.allocator, config, null);
     defer _ = term.deinit();
 
-    try term.setCursorVisibility(false);
+    try term.setCursorVisibility(false); // Hide the cursor
 
     const default_style = Style{
         .fg_color = Color.named(.White),
@@ -39,11 +40,13 @@ pub fn main() !void {
         },
     };
 
+    // Rune color overrides for the castle art
     const castle_color_pairs = [_]ColorPair{
         .{ .rune = 'm', .color = Color.named(.BrightBlack) },
         .{ .rune = '>', .color = Color.named(.Red) },
     };
 
+    // ... overrides for text logo
     const text_logo_color_pairs = [_]ColorPair{
         .{ .rune = '\"', .color = Color.named(.BrightBlack) },
         .{ .rune = '`', .color = Color.named(.Red) },
@@ -53,7 +56,8 @@ pub fn main() !void {
         .{ .rune = 'd', .color = Color.named(.Red) },
     };
 
-    term.screen_buffer.default_style = default_style; // What the screen buffer uses to draw clear cells
+    // Override the style the internal buffer uses to draw clear cells
+    term.screen_buffer.default_style = default_style;
 
     var text_pos = SignedPos{ .row = -15, .col = 29 };
     var text_target_row: i32 = 21;
@@ -63,12 +67,14 @@ pub fn main() !void {
         const this_frame_time = std.time.milliTimestamp();
         const delta = this_frame_time - last_frame_time; // ms between render calls
 
+        // Clear Termelot's internal screen buffer
         term.screen_buffer.clear();
 
-        // Render
+        // Render ascii to internal screen buffer
         renderAscii(&term, SignedPos{ .col = 0, .row = 10 }, default_style, castle_string[0..], castle_color_pairs[0..]);
         renderAscii(&term, text_pos, default_style, text_logo_string[0..], text_logo_color_pairs[0..]);
 
+        // Make draw call, rendering internal buffer to terminal
         try term.drawScreen();
 
         // Update
@@ -78,51 +84,46 @@ pub fn main() !void {
 
         }
 
+        // Sleep 50 milliseconds after frames (to keep computer calm)
         std.time.sleep(50 * std.time.ns_per_ms);
 
         last_frame_time = this_frame_time;
     }
 }
 
+/// Termelot offers a Position, which is a struct of two unsigned 16-bit integers for
+/// console interactions. Unsigned integers make sense in the console, but if we want
+/// to have anything moving in or out of the screen, we need signed positions.
 const SignedPos = struct {
     row: i32,
     col: i32,
 };
 
-fn write(term: *termelot.Termelot, pos: Position, style: Style, slice: []const u8) void {
-    var col = pos.col;
-    for (slice) |byte| {
-        if (byte == 0) break;
-        term.setCell(Position { .col = col, .row = pos.row }, Cell {
-            .rune = byte,
-            .style = style,
-        });
-        col += 1;
-    }
-}
-
+/// Overrides the color for a rune in the renderAscii function.
 const ColorPair = struct {
     rune: Rune,
     color: Color,
 };
 
+/// Draw a string `slice` starting at `draw_pos`, with default style `style`.
 fn renderAscii(term: *termelot.Termelot, draw_pos: SignedPos, style: Style, slice: []const u8, color_pairs: ?[]const ColorPair) void {
     var pos = draw_pos;
     var i: usize = 0;
     while (i < slice.len) : (i += 1) {
-        if (slice[i] == 0) break; 
-        if (slice[i] == '\n') {
+        const c = slice[i];
+        if (c == 0) break; 
+        if (c == '\n') {
             pos.col = draw_pos.col;
             pos.row += 1;
             continue;
         }
-        if (pos.row < 0 or pos.col < 0) continue; // Skip out of bounds chars
+        // Skip out of bounds chars (see SignedPos)
+        if (pos.row < 0 or pos.col < 0) continue;
         
-        if (slice[i] == '0') {
+        if (c == '0') {
             // Don't modify cell here
         } else {
-            const c = slice[i];
-
+            // Get any overriden color for the current rune
             var fg = style.fg_color;
             if (color_pairs) |pairs| {
                 for (pairs) |pair| {
@@ -150,8 +151,7 @@ fn renderAscii(term: *termelot.Termelot, draw_pos: SignedPos, style: Style, slic
     }
 }
 
-// Zeros in an ascii art string in this program are interpreted as "dont render this character,"
-// thereby leaving the character cells where those are, untouched.
+// Zeros in an ascii art string in this program are interpreted as transparency.
 const text_logo_string =
     \\                0000000000000000000000000000000000000000000   ,,  00000000000    0000
     \\  MMP""MM""YMM   00000000000000000000000000000000000000000  `7MM   000000000  mm  000
