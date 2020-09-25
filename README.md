@@ -1,6 +1,6 @@
-# Termelot
+![Termelot](media/logo.jpg)
 
-> Cross-platform cell-based terminal library.
+# A cross-platform cell-based terminal library.
 
 **WARNING**: This library is currently *vaporware*! Many features are not yet
 fully implemented.
@@ -14,7 +14,7 @@ https://github.com/minierolls/termelot/projects/1
 backend implementors!
 
 All definitions and functionality are accessible with a single import of
-`termelot.zig`. Handling events is as easy as registering a few callbacks!
+`termelot.zig`. Handling events is as easy as registering a callback!
 
 If you find a platform where **Termelot** does not yet run, the minimal
 backend interface is quick to implement. Additionally, there are no worries
