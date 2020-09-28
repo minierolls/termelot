@@ -181,6 +181,22 @@ extern "kernel32" fn WriteConsoleA(
     lpReserved: ?windows.LPVOID,
 ) callconv(.Stdcall) windows.BOOL;
 
+extern "kernel32" fn WriteConsoleOutputAttribute(
+    hConsoleOutput: windows.HANDLE,
+    lpAttribute: *const windows.WORD,
+    nLength: windows.DWORD,
+    dwWriteCoord: windows.COORD,
+    lpNumberOfAttrsWritten: windows.LPDWORD,
+) callconv(.Stdcall) windows.BOOL;
+
+extern "kernel32" fn WriteConsoleOutputCharacterA(
+    hConsoleOutput: windows.HANDLE,
+    lpCharacter: [*]const windows.TCHAR,
+    nLength: windows.DWORD,
+    dwWriteCoord: windows.COORD,
+    lpNumberOfCharsWritten: windows.LPDWORD,
+) callconv(.Stdcall) windows.BOOL;
+
 const CONSOLE_TEXTMODE_BUFFER: windows.DWORD = 1;
 
 // when hConsoleHandle param is an input handle:
@@ -710,20 +726,19 @@ pub const Backend = struct {
 
     /// Translates the TermCon Style into a Windows console attribute.
     fn getAttribute(self: *Self, style: Style) !windows.WORD {
-        if (self.cached_ansi_escapes_enabled) {
-            if (style.decorations.bold) {
-                try self.WriteConsole("\x1b[1m", null);
-            }
-            if (style.decorations.italic) {
-                try self.WriteConsole("\x1b[3m", null); // Italics unsupported on Windows consoles, but we may as well try
-            }
-            if (style.decorations.underline) {
-                try self.WriteConsole("\x1b[4m", null);
-            }
-        }
+        // if (self.cached_ansi_escapes_enabled) {
+        //     if (style.decorations.bold) {
+        //         try self.WriteConsole("\x1b[1m", null);
+        //     }
+        //     if (style.decorations.italic) {
+        //         try self.WriteConsole("\x1b[3m", null); // Italics unsupported on Windows consoles, but we may as well try
+        //     }
+        //     if (style.decorations.underline) {
+        //         try self.WriteConsole("\x1b[4m", null);
+        //     }
+        // }
 
         var attr = @as(windows.WORD, 0);
-        var fg_is_rgb = false; // Useful when editing color palette for RGB background
 
         // Foreground colors
         switch (style.fg_color) {
@@ -753,6 +768,10 @@ pub const Backend = struct {
         styles: []Style,
     ) !void {
         std.debug.assert(runes.len == styles.len);
+        if (runes.len == 0) {
+            std.log.debug("runes.len == 0\n", .{});
+            return;
+        } // Nothing to write
 
         const csbi = try self.getScreenBufferInfo();
         var coord = try self.coordToBufferSpace(windows.COORD{
@@ -762,28 +781,97 @@ pub const Backend = struct {
         std.debug.assert(coord.X >= csbi.srWindow.Left and coord.X <= csbi.srWindow.Right);
         std.debug.assert(coord.Y >= csbi.srWindow.Top and coord.Y <= csbi.srWindow.Bottom);
 
-        // Set new cursor position
-        if (windows.kernel32.SetConsoleCursorPosition(
-            self.h_console_out_current,
-            coord,
-        ) == 0) {
-            return error.BackendError;
+        if (runes.len == 1) {
+            std.log.debug("printing only one rune!\n", .{});
+            var items_written = @as(windows.DWORD, 0);
+            // Write the single style
+            const attr = try self.getAttribute(styles[0]);
+            _ = WriteConsoleOutputAttribute(
+                self.h_console_out_current,
+                &attr,
+                1,
+                coord,
+                &items_written,
+            );
+            // Write the single rune
+            _ = WriteConsoleOutputCharacterA(
+                self.h_console_out_current,
+                runes.ptr,
+                1,
+                coord,
+                &items_written,
+            );
+
+            return;
         }
 
-        var index: u32 = 0;
-        while (index < runes.len) : (index += 1) { // TODO: do nothing on newlines
-            if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
-                // Update attributes
-                if (windows.kernel32.SetConsoleTextAttribute(
-                    self.h_console_out_current,
-                    try self.getAttribute(styles[index]),
-                ) == 0)
-                    return error.BackendError;
+        // Copy all runes to console at position `coord`
+        var chars_written = @as(windows.DWORD, 0);
+        _ = WriteConsoleOutputCharacterA(
+            self.h_console_out_current,
+            runes.ptr,
+            @intCast(windows.DWORD, runes.len),
+            coord,
+            &chars_written,
+        );
+
+        var style_markers = try self.allocator.alloc(u16, styles.len);
+        defer self.allocator.free(style_markers);
+
+        style_markers[0] = 0; // We're definitely writing the first style ...
+
+        var style_markers_idx: u16 = 1; // Position we're writing next `styles` index value at (aka len of style_markers)
+        var i: u16 = 1;
+        while (i < styles.len) : (i += 1) { // For every style ...
+            if (!std.meta.eql(styles[i], styles[i-1])) { // If this style is different from the last style ...
+                style_markers[style_markers_idx] = i; // i is the index of a beginning of a new style
+                style_markers_idx += 1; // Move marker index to the next position
+            }
+        }
+
+        i = 1;
+        while (i < style_markers_idx) : (i += 1) { // For each style marker after the first ...
+            const begin_idx = style_markers[i-1]; // SUSPECT
+            var end_idx: u16 = undefined;
+            if (i == style_markers_idx - 1) {
+                end_idx = @intCast(u16, styles.len);
+            } else {
+                end_idx = style_markers[i];
             }
 
-            try self.WriteConsole(runes[index..index+1], null);
+            var attrs_written = @as(windows.DWORD, 0);
 
-            coord.X += 1;
+            // Copy style attribute at styles[begin_idx] to all character cells
+            // between `coord.X + begin_idx` until `coord.X + end_idx`.
+            // @breakpoint();
+            var attr = try self.getAttribute(styles[begin_idx]);
+            _ = WriteConsoleOutputAttribute(
+                self.h_console_out_current,
+                &attr,
+                end_idx - begin_idx,
+                windows.COORD {
+                    .X = coord.X + @intCast(i16, begin_idx),
+                    .Y = coord.Y,
+                },
+                &attrs_written,
+            );
         }
+
+        // var index: u32 = 0;
+        // while (index < runes.len) : (index += 1) { // TODO: do nothing on newlines
+            
+        //     if (index == 0 or !std.meta.eql(styles[index], styles[index - 1])) {
+        //         // Update attributes
+        //         if (windows.kernel32.SetConsoleTextAttribute(
+        //             self.h_console_out_current,
+        //             try self.getAttribute(styles[index]),
+        //         ) == 0)
+        //             return error.BackendError;
+        //     }
+
+        //     try self.WriteConsole(runes[index..index+1], null);
+
+        //     coord.X += 1;
+        // }
     }
 };
