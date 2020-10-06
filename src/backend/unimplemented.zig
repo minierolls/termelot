@@ -58,15 +58,13 @@ pub const Backend = struct {
         @compileError("Unimplemented");
     }
 
-    /// Start event/signal handling loop, non-blocking immediate return.
-    pub fn start(self: *Self) !void {
-        // This function should call necessary functions for screen size
-        // update, key event callbacks, and mouse event callbacks.
+    /// Non-blocking; return next available event without consuming it.
+    pub fn peekEvent(self: *Self) !?Event {
         @compileError("Unimplemented");
     }
 
-    /// Stop event/signal handling loop.
-    pub fn stop(self: *Self) void {
+    /// Blocking; wait for next available event and consume it.
+    pub fn pollEvent(self: *Self) !Event {
         @compileError("Unimplemented");
     }
 

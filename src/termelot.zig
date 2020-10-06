@@ -8,6 +8,7 @@ const std = @import("std");
 pub const style = @import("style.zig");
 usingnamespace style;
 pub const event = @import("event.zig");
+usingnamespace event;
 
 pub const Backend = @import("backend.zig").backend.Backend;
 pub const Buffer = @import("buffer.zig").Buffer;
@@ -45,7 +46,6 @@ pub const Termelot = struct {
     config: Config,
     supported_features: SupportedFeatures,
     allocator: *std.mem.Allocator,
-    callbacks: std.ArrayList(event.EventCallback),
     cursor_position: Position,
     cursor_visible: bool,
     screen_size: Size,
@@ -63,8 +63,6 @@ pub const Termelot = struct {
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {
-        self.callbacks = std.ArrayList(event.EventCallback).init(allocator);
-        errdefer self.callbacks.deinit();
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
@@ -84,8 +82,6 @@ pub const Termelot = struct {
             initial_buffer_size,
         );
         errdefer self.screen_buffer.deinit();
-
-        try self.backend.start();
     }
 
     pub fn deinit(self: *Self) void {
@@ -95,10 +91,21 @@ pub const Termelot = struct {
         if (self.config.raw_mode) {
             self.backend.setRawMode(false) catch {};
         }
-        self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();
-        self.callbacks.deinit();
+    }
+
+    /// A non-blocking function; will return the next available Event if one is available.
+    /// peekEvent does not consume the Event, so repeated calls to peekEvent will
+    /// result in the same Event being returned. pollEvent will consume the event.
+    pub fn peekEvent(self: *Self) !?Event {
+        return self.backend.peekEvent();
+    }
+
+    /// A blocking function; will not return until an Event or an error has become
+    /// available. Use with peekEvent for non-blocking event handling.
+    pub fn pollEvent(self: *Self) !Event {
+        return self.backend.pollEvent();
     }
 
     /// Set the Termelot-aware screen size. This does NOT resize the physical
@@ -106,39 +113,6 @@ pub const Termelot = struct {
     /// is intended for use primarily by the backend.
     pub fn setScreenSize(self: *Self, screen_size: Size) void {
         self.screen_size = screen_size;
-    }
-
-    pub fn callCallbacks(self: Self, e: event.Event) void {
-        const time = std.time.milliTimestamp();
-        for (self.callbacks.items) |callback| {
-            callback.call(e, time);
-        }
-    }
-    pub fn registerCallback(
-        self: *Self,
-        new_callback: event.EventCallback,
-    ) !void {
-        for (self.callbacks.items) |callback| {
-            if (std.meta.eql(callback, new_callback)) {
-                return;
-            }
-        }
-        try self.callbacks.append(new_callback);
-    }
-    pub fn deleteCallback(
-        self: *Self,
-        del_callback: event.EventCallback,
-    ) void {
-        var remove_index: usize = self.callbacks.items.len;
-        for (self.callbacks.items) |callback, index| {
-            if (std.meta.eql(callback, del_callback)) {
-                remove_index = index;
-                break;
-            }
-        }
-        if (remove_index < self.callbacks.items.len) {
-            _ = self.callbacks.orderedRemove(remove_index);
-        }
     }
 
     pub fn setTitle(self: *Self, title: []const Rune) !void {

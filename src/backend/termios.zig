@@ -20,6 +20,7 @@ const Position = termelot_import.Position;
 const Size = termelot_import.Size;
 const Rune = termelot_import.Rune;
 usingnamespace termelot_import.style;
+usingnamespace termelot_import.event;
 
 fn ioctl(fd: std.os.fd_t, request: u32, comptime ResT: type) !ResT {
     var res: ResT = undefined;
@@ -232,16 +233,14 @@ pub const Backend = struct {
         }
     }
 
-    /// Start event/signal handling loop, non-blocking immediate return.
-    pub fn start(self: *Self) !void {
-        // This function should call necessary functions for screen size
-        // update, key event callbacks, and mouse event callbacks.
-        // @compileError("Unimplemented");
+    /// Non-blocking; return next available event without consuming it.
+    pub fn peekEvent(self: *Self) !?Event {
+        @compileError("unimplemented!");
     }
 
-    /// Stop event/signal handling loop.
-    pub fn stop(self: *Self) void {
-        // @compileError("Unimplemented");
+    /// Blocking; wait for next available event and consume it.
+    pub fn pollEvent(self: *Self) !Event {
+        @compileError("unimplemented!");
     }
 
     /// Set terminal title.
