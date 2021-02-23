@@ -95,17 +95,12 @@ pub const Termelot = struct {
         self.backend.deinit();
     }
 
-    /// A non-blocking function; will return the next available Event if one is available.
-    /// peekEvent does not consume the Event, so repeated calls to peekEvent will
-    /// result in the same Event being returned. pollEvent will consume the event.
-    pub fn peekEvent(self: *Self) !?Event {
-        return self.backend.peekEvent();
-    }
-
-    /// A blocking function; will not return until an Event or an error has become
-    /// available. Use with peekEvent for non-blocking event handling.
-    pub fn pollEvent(self: *Self) !Event {
-        return self.backend.pollEvent();
+    /// Polls for an event. If the optional `timeout` parameter has a value greater than 0,
+    /// the function will not block and returns null whenever `timeout` milliseconds
+    /// has elapsed and no event could be fetched. Function returns immediately upon finding
+    /// an Event.
+    pub fn pollEvent(self: *Self, struct { timeout: i32 = 0 }) !?Event {
+        return self.backend.pollEvent(timeout);
     }
 
     /// Set the Termelot-aware screen size. This does NOT resize the physical
