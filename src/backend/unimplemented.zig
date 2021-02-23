@@ -48,6 +48,14 @@ pub const Backend = struct {
         @compileError("Unimplemented");
     }
 
+    /// If timeout is less than or equal to zero:
+    /// Blocking; return next available Event if one is present, and null otherwise.
+    /// If timeout is greater than zero:
+    /// Non-blocking; return next available Event if one arises within `timeout` ms.
+    pub fn pollEvent(self: *Self, timeout: i32) !?Event {
+        @compileError("Unimplemented");
+    }
+
     /// Retrieve alternate screen status.
     pub fn getAlternateScreen(self: *Self) !bool {
         @compileError("Unimplemented");
