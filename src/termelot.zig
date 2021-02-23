@@ -101,6 +101,14 @@ pub const Termelot = struct {
         self.callbacks.deinit();
     }
 
+    /// Polls for an event. If the optional `timeout` parameter has a value greater than 0,
+    /// the function will not block and returns null whenever `timeout` milliseconds
+    /// has elapsed and no event could be fetched. Function returns immediately upon finding
+    /// an Event.
+    pub fn pollEvent(self: *Self, struct { timeout: i32 = 0 }) !?Event {
+        return self.backend.pollEvent(timeout);
+    }
+
     /// Set the Termelot-aware screen size. This does NOT resize the physical
     /// terminal screen, and should not be called by users in most cases. This
     /// is intended for use primarily by the backend.
