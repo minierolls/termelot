@@ -7,5 +7,6 @@ const std = @import("std");
 const builtin = std.builtin;
 
 pub const backend = switch (builtin.os.tag) {
+    .linux => @import("backend/ncurses.zig"),
     else => @import("backend/unimplemented.zig"),
 };

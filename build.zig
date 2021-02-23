@@ -39,6 +39,7 @@ pub fn build(b: *Builder) !void {
     ziro.setOutputDir(examples_output_path);
     ziro.addPackagePath("termelot", "src/termelot.zig");
     ziro.linkLibC();
+    ziro.linkSystemLibrary("ncurses");
 
     const ziro_run_cmd = ziro.run();
 
@@ -51,6 +52,7 @@ pub fn build(b: *Builder) !void {
     donut.setOutputDir(examples_output_path);
     donut.addPackagePath("termelot", "src/termelot.zig");
     donut.linkLibC();
+    donut.linkSystemLibrary("ncurses");
 
     const donut_run_cmd = donut.run();
 
