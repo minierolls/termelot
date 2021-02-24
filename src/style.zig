@@ -57,8 +57,8 @@ pub const Color = union(ColorType) {
     }
 
     /// Create a new Color from one of 16 color names with a ColorNamed16.
-    pub inline fn named(color_named: ColorNamed16) Color {
-        return Color{ .Named16 = color_named };
+    pub inline fn named(named: ColorNamed16) Color {
+        return Color{ .Named16 = named };
     }
 };
 
@@ -69,8 +69,18 @@ pub const ColorType = enum {
     Bit24,
 };
 
-/// Color names and values based on:
-/// [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code)
+/// The first 8 values of the `ColorNamed16` are supported by all colored terminals. Likely anything
+/// reasonably capable of being a terminal will support the first 8 values, and probably the other
+/// half, as well. These values are only indexes to a palette stored by the terminal -- users may
+/// be able to override palettes -- some terminals may do it automatically.
+///
+/// But in some rare cases, a terminal is only ASCII and will not support colors at all. Hopefully
+/// in at least half of these cases, the backend will detect the terminal's ill support of colors,
+/// and will ignore any incoming colors. In the event a backend attempts to use colors on a terminal
+/// without support for them, that terminal may stop working. But in general, the basic 16 colors
+/// are very safe to use, especially on modern terminals.
+///
+/// Color names and values based on [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
 pub const ColorNamed16 = enum {
     Black,
     Red,
@@ -90,11 +100,19 @@ pub const ColorNamed16 = enum {
     BrightWhite,
 };
 
-/// Color values based on:
-/// [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code)
+/// A ColorBit8 is technically an 8-bit reference to a palette containing 24-bit colors.
+/// In this library we just refer to it as 8-bit color. Most modern terminals support 256 colors.
+///
+/// Just like for `ColorBit24`: if 8-bit colors are used on a backend or terminal at runtime that
+/// does not support 8-bit color, and the backend knows, then it will round 8-bit colors to
+/// `ColorNamed16`s or the highest bit-size color supported.
+///
+/// Color values based on [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
 pub const ColorBit8 = packed struct {
     code: u8,
 
+    /// `ColorNamed16`s comprise the first 16 values of the `ColorBit8`, so the enum is converted
+    /// to an integer.
     pub fn fromNamed16(named: ColorNamed16) ColorBit8 {
         return ColorBit8{ .code = @enumToInt(named) };
     }
@@ -104,20 +122,25 @@ pub const ColorBit8 = packed struct {
     }
 };
 
+/// 16 million color 24-bit, or better known as "True Color" or RGB. Almost an equal number of
+/// supporting and non-supporting terminals feature True Color. Some terminals may use rounding
+/// to convert 24-bit colors to 8-bit colors, but many more seem not to round, either.
+///
+/// If 24-bit colors are used on a backend or terminal at runtime that does not support 24-bit color,
+/// and the backend knows, then it will round 24-bit colors to the highest bit-size color supported.
+/// This rounding may cause differences in appearance: see description of function `roundToBit8`.
+///
+/// For more information about True Color, see this gist: https://gist.github.com/XVilka/8346728
 pub const ColorBit24 = packed struct {
     code: u24,
 
     const Self = @This();
 
-    pub fn init(hex: u24) ColorBit24 {
-        return ColorBit24{ .code = hex };
-    }
-
-    pub fn initRGB(red_val: u8, green_val: u8, blue_val: u8) ColorBit24 {
+    pub fn RGB(red: u8, green: u8, blue: u8) ColorBit24 {
         var code: u24 = 0;
-        code |= blue_val;
-        code |= @as(u16, green_val) << 8;
-        code |= @as(u24, red_val) << 16;
+        code |= blue;
+        code |= @as(u16, green) << 8;
+        code |= @as(u24, red) << 16;
         return ColorBit24{ .code = code };
     }
 
@@ -132,7 +155,13 @@ pub const ColorBit24 = packed struct {
     }
 
     /// Round 24-bit Color to 8-bit using nearest values. This may be useful when
-    /// terminals don't support "truecolor" or RGB color.
+    /// terminals don't support "True Color" or RGB color. Uses a lookup table to find
+    /// nearest 24-bit color equivalents for 8-bit colors on the palette.
+    ///
+    /// In general, rounding colors to lower bit sizes on terminals cannot be considered
+    /// reliable for many reasons. Terminals can use different palettes, and the converted
+    /// colors may be nowhere near accurate. But in the same sense, that is true about ColorBit8
+    /// already.
     pub fn roundToBit8(self: Self) ColorBit8 {
         const closest_main_idx = binarySearchClosest(&main_table, 0, main_table.len - 1, self.code);
         const closest_grey_idx = binarySearchClosest(&grey_table, 0, grey_table.len - 1, self.code);
