@@ -27,6 +27,12 @@ pub fn build(b: *Builder) !void {
 
     // b.default_step.dependOn(&lib.step);
 
+    const lib_tests = b.addTest("src/termelot.zig");
+    lib_tests.setBuildMode(mode);
+
+    const test_step = b.step("test", "Run library tests");
+    test_step.dependOn(&lib_tests.step);
+
     const examples_output_path = fs.path.join(b.allocator, &[_][]const u8{
         b.build_root,
         "build",
