@@ -45,7 +45,6 @@ pub const Termelot = struct {
     config: Config,
     supported_features: SupportedFeatures,
     allocator: *std.mem.Allocator,
-    callbacks: std.ArrayList(event.EventCallback),
     cursor_position: Position,
     cursor_visible: bool,
     screen_size: Size,
@@ -63,8 +62,6 @@ pub const Termelot = struct {
         config: Config,
         initial_buffer_size: ?Size,
     ) !void {
-        self.callbacks = std.ArrayList(event.EventCallback).init(allocator);
-        errdefer self.callbacks.deinit();
         self.backend = try Backend.init(self, allocator, config);
         errdefer self.backend.deinit();
         self.config = config;
@@ -98,7 +95,6 @@ pub const Termelot = struct {
         self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();
-        self.callbacks.deinit();
     }
 
     /// Polls for an event. If the optional `timeout` parameter has a value greater than 0,
@@ -114,39 +110,6 @@ pub const Termelot = struct {
     /// is intended for use primarily by the backend.
     pub fn setScreenSize(self: *Self, screen_size: Size) void {
         self.screen_size = screen_size;
-    }
-
-    pub fn callCallbacks(self: Self, e: event.Event) void {
-        const time = std.time.milliTimestamp();
-        for (self.callbacks.items) |callback| {
-            callback.call(e, time);
-        }
-    }
-    pub fn registerCallback(
-        self: *Self,
-        new_callback: event.EventCallback,
-    ) !void {
-        for (self.callbacks.items) |callback| {
-            if (std.meta.eql(callback, new_callback)) {
-                return;
-            }
-        }
-        try self.callbacks.append(new_callback);
-    }
-    pub fn deleteCallback(
-        self: *Self,
-        del_callback: event.EventCallback,
-    ) void {
-        var remove_index: usize = self.callbacks.items.len;
-        for (self.callbacks.items) |callback, index| {
-            if (std.meta.eql(callback, del_callback)) {
-                remove_index = index;
-                break;
-            }
-        }
-        if (remove_index < self.callbacks.items.len) {
-            _ = self.callbacks.orderedRemove(remove_index);
-        }
     }
 
     pub fn setTitle(self: *Self, title: []const Rune) !void {
