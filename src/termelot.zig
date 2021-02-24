@@ -16,6 +16,7 @@ pub const Rune = @import("rune.zig").Rune;
 pub const Config = struct {
     raw_mode: bool,
     alternate_screen: bool,
+    initial_buffer_size: ?Size,
 };
 pub const SupportedFeatures = struct {
     color_types: struct {
@@ -53,36 +54,34 @@ pub const Termelot = struct {
 
     const Self = @This();
 
-    /// This function should be called *after* declaring a `Termelot` struct:
-    ///     var termelot: Termelot = undefined;        OR
-    ///     var termelot = @as(Termelot, undefined);
     pub fn init(
-        self: *Self,
         allocator: *std.mem.Allocator,
         config: Config,
-        initial_buffer_size: ?Size,
-    ) !void {
-        self.backend = try Backend.init(self, allocator, config);
-        errdefer self.backend.deinit();
-        self.config = config;
+    ) !Termelot {
+        var backend = try Backend.init(allocator, config);
+        errdefer backend.deinit();
+        
         if (config.raw_mode) {
-            try self.backend.setRawMode(true);
+            try backend.setRawMode(true);
         }
         if (config.alternate_screen) {
-            try self.backend.setAlternateScreen(true);
+            try backend.setAlternateScreen(true);
         }
-        self.supported_features = try self.backend.getSupportedFeatures();
-        self.cursor_position = try self.backend.getCursorPosition();
-        self.cursor_visible = try self.backend.getCursorVisibility();
-        self.screen_size = try self.backend.getScreenSize();
-        self.screen_buffer = try Buffer.init(
-            &self.backend,
-            allocator,
-            initial_buffer_size,
-        );
-        errdefer self.screen_buffer.deinit();
 
-        try self.backend.start();
+        return Termelot{
+            .config = config,
+            .supported_features = try backend.getSupportedFeatures(),
+            .allocator = allocator,
+            .cursor_position = try backend.getCursorPosition(),
+            .cursor_visible = try backend.getCursorVisibility(),
+            .screen_size = try backend.getScreenSize(),
+            .screen_buffer = try Buffer.init(
+                &backend,
+                allocator,
+                config.initial_buffer_size,
+            ),
+            .backend = backend,
+        };
     }
 
     pub fn deinit(self: *Self) void {
@@ -92,7 +91,6 @@ pub const Termelot = struct {
         if (self.config.raw_mode) {
             self.backend.setRawMode(false) catch {};
         }
-        self.backend.stop();
         self.screen_buffer.deinit();
         self.backend.deinit();
     }

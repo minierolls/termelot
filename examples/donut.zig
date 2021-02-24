@@ -15,10 +15,10 @@ pub fn main() !void {
     const config = termelot.Config{
         .raw_mode = false,
         .alternate_screen = true,
+        .initial_buffer_size = null,
     };
 
-    var term: termelot.Termelot = undefined;
-    try term.init(&gpa.allocator, config, null);
+    var term = try termelot.Termelot.init(&gpa.allocator, config);
     defer term.deinit();
 
     try term.setCursorVisibility(false);
@@ -90,29 +90,29 @@ pub fn main() !void {
                     const lum: u8 = @floatToInt(u8, @floor(L * 8.0));
                     var c: Color = undefined;
                     if (lum == 0) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(7, 72, 146) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(7, 72, 146) };
                     } else if (lum == 1) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(22, 87, 161) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(22, 87, 161) };
                     } else if (lum == 2) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(34, 101, 178) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(34, 101, 178) };
                     } else if (lum == 3) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(46, 111, 185) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(46, 111, 185) };
                     } else if (lum == 4) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(58, 120, 192) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(58, 120, 192) };
                     } else if (lum == 5) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(72, 131, 199) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(72, 131, 199) };
                     } else if (lum == 6) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(88, 147, 215) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(88, 147, 215) };
                     } else if (lum == 7) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(99, 154, 218) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(99, 154, 218) };
                     } else if (lum == 8) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(113, 167, 229) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(113, 167, 229) };
                     } else if (lum == 9) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(124, 176, 235) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(124, 176, 235) };
                     } else if (lum == 10) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(140, 187, 240) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(140, 187, 240) };
                     } else if (lum == 11) {
-                        c = Color{ .Bit24 = ColorBit24.initRGB(160, 202, 249) };
+                        c = Color{ .Bit24 = ColorBit24.RGB(160, 202, 249) };
                     }
                     term.setCell(
                         Position{ .row = @intCast(u16, yp), .col = @intCast(u16, xp) },
