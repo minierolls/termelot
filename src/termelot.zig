@@ -105,8 +105,8 @@ pub const Termelot = struct {
     /// the function will not block and returns null whenever `timeout` milliseconds
     /// has elapsed and no event could be fetched. Function returns immediately upon finding
     /// an Event.
-    pub fn pollEvent(self: *Self, struct { timeout: i32 = 0 }) !?Event {
-        return self.backend.pollEvent(timeout);
+    pub fn pollEvent(self: *Self, opt: struct { timeout: i32 = 0 }) !?event.Event {
+        return self.backend.pollEvent(opt.timeout);
     }
 
     /// Set the Termelot-aware screen size. This does NOT resize the physical
@@ -178,11 +178,19 @@ pub const Termelot = struct {
         return self.screen_buffer.getCell(position);
     }
 
+    /// Get a slice of cells within the buffer. This slice cannot span across
+    /// rows. Results will be placed in provided "result", and the number of
+    /// cells filled will be returned (only less than the specified length if
+    /// the slice extends past the edges of the buffer). If position is outside
+    /// the buffer, `null` is returned instead.
+    ///
+    /// `result` is a slice of at least length `length` to write the cells
+    /// into.
     pub fn getCells(
         self: Self,
         position: Position,
         length: u16,
-        result: *[length]Cell,
+        result: []Cell,
     ) ?u16 {
         return self.screen_buffer.getCells(position, length, result);
     }
@@ -204,3 +212,7 @@ pub const Termelot = struct {
         self.screen_buffer.fillCells(position, length, new_cell);
     }
 };
+
+test "Termelot refAllDecls" {
+    std.testing.refAllDecls(Termelot);
+}

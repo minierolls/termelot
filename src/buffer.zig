@@ -373,12 +373,16 @@ pub const Buffer = struct {
     /// cells filled will be returned (only less than the specified length if
     /// the slice extends past the edges of the buffer). If position is outside
     /// the buffer, `null` is returned instead.
+    ///
+    /// `result` is a slice of at least length `length` to write the cells
+    /// into.
     pub fn getCells(
         self: Self,
         position: Position,
         length: u16,
-        result: *[length]Cell,
+        result: []Cell,
     ) ?u16 {
+        std.debug.assert(result.len >= length);
         if (position.row >= self.size.rows or position.col >= self.size.cols) {
             return null;
         }
@@ -410,10 +414,10 @@ pub const Buffer = struct {
         if (position.row >= self.size.rows or position.col >= self.size.cols) {
             return;
         }
-        const row_index = @as(u32, position.row) * @as(u32, self.size.cols);
+        const row_index = @as(usize, position.row) * @as(usize, self.size.cols);
         for (new_cells) |new_cell, offset| {
             if (position.col + offset >= self.size.cols) break;
-            const index = row_index + @as(u32, position.col + offset);
+            const index = row_index + @as(usize, position.col) + offset;
             self.rune_buffer.items[index] = new_cell.rune;
             self.style_buffer.items[index] = new_cell.style;
         }
@@ -434,7 +438,7 @@ pub const Buffer = struct {
         while (position.col + offset < self.size.cols) : (offset += 1) {
             const index = row_index + @as(u32, position.col + offset);
             self.rune_buffer.items[index] = new_cell.rune;
-            self.rune_buffer.items[index] = new_cell.style;
+            self.style_buffer.items[index] = new_cell.style;
         }
     }
 };
