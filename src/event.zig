@@ -8,28 +8,6 @@ const Position = termelot.Position;
 const Rune = termelot.Rune;
 const Size = termelot.Size;
 
-/// A self-contained Event handler. The i64 parameter is for thread synchronization,
-/// and it is milliseconds since Unix Epoch. The callback function will be executed
-/// from a secondary thread when handling events. The time parameter is provided for
-/// synchronization. It is up to the user to prevent data races if the callback modifies
-/// shared state through its context.
-///
-/// **context**: A pointer-as-an-int to a resource accessed by the callback function.
-/// the function needs to know about when called.
-/// **callback**: The function that will be handling events.
-pub const EventCallback = struct {
-    context: usize,
-    callback: fn (usize, Event, i64) void,
-
-    const Self = @This();
-
-    /// Call the callback function.
-    /// **time**: Milliseconds since Unix Epoch.
-    pub fn call(self: Self, event: Event, time: i64) void {
-        self.callback(self.context, event, time);
-    }
-};
-
 /// An Event can be a KeyEvent, MouseEvent, or a new terminal size.
 /// You can switch on an Event to get its type:
 /// ```zig

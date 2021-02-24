@@ -6,46 +6,50 @@
 const std = @import("std");
 
 const termelot_import = @import("../termelot.zig");
-const Termelot = termelot_import.Termelot;
 const Config = termelot_import.Config;
-const SupportedFeatures = termelot_import.SupportedFeatures;
+const Event = termelot_import.event.Event;
 const Position = termelot_import.Position;
-const Size = termelot_import.Size;
 const Rune = termelot_import.Rune;
+const Size = termelot_import.Size;
 const Style = termelot_import.style.Style;
+const SupportedFeatures = termelot_import.SupportedFeatures;
+const Termelot = termelot_import.Termelot;
 
 pub const Backend = struct {
     // Add desired backend fields here; the `Backend` struct's fields
     // will *never* be accessed, so add/remove as needed.
+
     const Self = @This();
 
     /// Initialize backend
     pub fn init(
-        termelot: *Termelot,
         allocator: *std.mem.Allocator,
         config: Config,
     ) !Backend {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Retrieve supported features for this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Retrieve raw mode status.
     pub fn getRawMode(self: *Self) !bool {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Enter/exit raw mode.
     pub fn setRawMode(self: *Self, enabled: bool) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// If timeout is less than or equal to zero:
@@ -53,34 +57,35 @@ pub const Backend = struct {
     /// If timeout is greater than zero:
     /// Non-blocking; return next available Event if one arises within `timeout` ms.
     pub fn pollEvent(self: *Self, timeout: i32) !?Event {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Retrieve alternate screen status.
     pub fn getAlternateScreen(self: *Self) !bool {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Enter/exit alternate screen.
     pub fn setAlternateScreen(self: *Self, enabled: bool) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Start event/signal handling loop, non-blocking immediate return.
     pub fn start(self: *Self) !void {
         // This function should call necessary functions for screen size
         // update, key event callbacks, and mouse event callbacks.
-        @compileError("Unimplemented");
     }
 
     /// Stop event/signal handling loop.
     pub fn stop(self: *Self) void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Set terminal title.
     pub fn setTitle(self: *Self, runes: []const Rune) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Get screen size.
@@ -88,27 +93,29 @@ pub const Backend = struct {
         // This function will only be called once on
         // startup, and then the size should be set
         // through the event handling loop.
-        @compileError("Unimplemented");
+        return error.Unimplemented;
     }
 
     /// Get cursor position.
     pub fn getCursorPosition(self: *Self) !Position {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Set cursor position.
     pub fn setCursorPosition(self: *Self, position: Position) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Get cursor visibility.
     pub fn getCursorVisibility(self: *Self) !bool {
-        @compileError("Unimplemented");
+        // function body
+        return error.Unimplemented;
     }
 
     /// Set cursor visibility.
     pub fn setCursorVisibility(self: *Self, visible: bool) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 
     /// Write styled output to screen at position. Assumed that no newline
@@ -119,6 +126,6 @@ pub const Backend = struct {
         runes: []Rune,
         styles: []Style,
     ) !void {
-        @compileError("Unimplemented");
+        // function body
     }
 };
