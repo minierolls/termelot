@@ -136,11 +136,11 @@ pub const ColorBit24 = packed struct {
 
     const Self = @This();
 
-    pub fn RGB(red: u8, green: u8, blue: u8) ColorBit24 {
+    pub fn RGB(r: u8, g: u8, b: u8) ColorBit24 {
         var code: u24 = 0;
-        code |= blue;
-        code |= @as(u16, green) << 8;
-        code |= @as(u24, red) << 16;
+        code |= b;
+        code |= @as(u16, g) << 8;
+        code |= @as(u24, r) << 16;
         return ColorBit24{ .code = code };
     }
 
