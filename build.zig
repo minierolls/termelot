@@ -62,4 +62,16 @@ pub fn build(b: *Builder) !void {
 
     const donut_run_step = b.step("donut", "Run the `donut` example");
     donut_run_step.dependOn(&donut_run_cmd.step);
+
+    var init = b.addExecutable("init", "examples/init.zig");
+    init.setBuildMode(mode);
+    init.setTarget(target);
+    init.setOutputDir(examples_output_path);
+    init.addPackagePath("termelot", "src/termelot.zig");
+    init.linkLibC();
+
+    const init_run_cmd = init.run();
+
+    const init_run_step = b.step("init", "Run the `init` example");
+    init_run_step.dependOn(&init_run_cmd.step);
 }

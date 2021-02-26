@@ -22,6 +22,15 @@ const Color = style.Color;
 const ColorBit8 = style.ColorBit8;
 const Decorations = style.Decorations;
 
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    termelot.log(level, scope, format, args);
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
