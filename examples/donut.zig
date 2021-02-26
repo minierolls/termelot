@@ -8,6 +8,15 @@ const Position = termelot.Position;
 const Cell = termelot.Cell;
 usingnamespace termelot.style;
 
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    termelot.log(level, scope, format, args);
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
