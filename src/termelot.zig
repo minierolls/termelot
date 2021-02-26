@@ -13,6 +13,37 @@ pub const Backend = @import("backend.zig").backend.Backend;
 pub const Buffer = @import("buffer.zig").Buffer;
 pub const Rune = @import("rune.zig").Rune;
 
+const termelot_log = std.log.scoped(.termelot);
+
+// Overriding std implementation of log. This function does not actually override because this is only
+// a library. Although, users of the library are encouraged to override the `log()` function themselves and
+// only forward the arguments to this implementation, because it might make their lives easier.
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const prefix = "[" ++ @tagName(scope) ++ ":" ++ @tagName(level) ++ "] ";
+
+    var buf = [_]u8 { ' ' } ** 1024; // Reserve array of 1024 bytes in stack
+    var exe_dir = std.fs.cwd().openDir(std.fs.selfExeDirPath(&buf) catch return, .{ .access_sub_paths = true }) catch return;
+    defer exe_dir.close();
+    var log_file = exe_dir.createFile(
+        "log.txt",
+        // TODO: we want to create an exclusive lock on file writing, but allow other processes to read,
+        // and not block the return of this function or logging (allow io to be blocked, not the program)
+        .{ .read = true, .truncate = false }, // We prefer to append to the log if it exists
+    ) catch return;
+    defer log_file.close();
+
+    // Seek to end of file (to append data)
+    log_file.seekFromEnd(0) catch return;
+
+    const writer = log_file.writer();
+    nosuspend writer.print(prefix ++ format ++ "\n", args) catch return;
+}
+
 pub const Config = struct {
     raw_mode: bool,
     alternate_screen: bool,
