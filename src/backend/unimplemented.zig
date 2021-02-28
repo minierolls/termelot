@@ -72,15 +72,12 @@ pub const Backend = struct {
         // function body
     }
 
-    /// Start event/signal handling loop, non-blocking immediate return.
-    pub fn start(self: *Self) !void {
-        // This function should call necessary functions for screen size
-        // update, key event callbacks, and mouse event callbacks.
-    }
-
-    /// Stop event/signal handling loop.
-    pub fn stop(self: *Self) void {
-        // function body
+    /// If timeout is less than or equal to zero:
+    /// Blocking; return next available Event if one is present, and null otherwise.
+    /// If timeout is greater than zero:
+    /// Non-blocking; return next available Event if one arises within `timeout` ms.
+    pub fn pollEvent(self: *Self, timeout: i32) !?Event {
+        return error.Unimplemented;
     }
 
     /// Set terminal title.

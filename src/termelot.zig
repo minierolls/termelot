@@ -8,6 +8,7 @@ const std = @import("std");
 pub const style = @import("style.zig");
 usingnamespace style;
 pub const event = @import("event.zig");
+usingnamespace event;
 
 pub const Backend = @import("backend.zig").backend.Backend;
 pub const Buffer = @import("buffer.zig").Buffer;

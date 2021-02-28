@@ -7,5 +7,6 @@ const std = @import("std");
 const builtin = std.builtin;
 
 pub const backend = switch (builtin.os.tag) {
+    .linux, .macos, .dragonfly, .freebsd, .openbsd => @import("backend/termios.zig"),
     else => @import("backend/unimplemented.zig"),
 };
