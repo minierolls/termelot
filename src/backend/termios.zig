@@ -5,10 +5,13 @@
 
 const c = @cImport({
     @cInclude("sys/ioctl.h");
+    @cInclude("sys/time.h");
     @cInclude("termios.h");
 });
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut();
 
@@ -142,9 +145,11 @@ pub const Backend = struct {
         .linux => std.os.termios,
         else => c.termios,
     },
+    allocator: *Allocator,
     alternate: bool,
     cursor_visible: bool,
     cursor_position: Position,
+    input_buffer: ArrayList(u8),
 
     const Self = @This();
 
@@ -158,9 +163,11 @@ pub const Backend = struct {
 
         var result = Backend{
             .orig_termios = orig_termios,
+            .allocator = allocator,
             .alternate = false,
             .cursor_visible = false,
             .cursor_position = undefined,
+            .input_buffer = try ArrayList(u8).initCapacity(allocator, 128),
         };
 
         try result.setCursorPosition(Position{ .row = 0, .col = 0 });
@@ -171,6 +178,7 @@ pub const Backend = struct {
     /// Deinitialize backend
     pub fn deinit(self: *Self) void {
         tcsetattr(stdin.handle, self.orig_termios) catch {};
+        self.input_buffer.deinit();
     }
 
     /// Retrieve supported features for this backend.
@@ -233,14 +241,49 @@ pub const Backend = struct {
         }
     }
 
-    /// Non-blocking; return next available event without consuming it.
-    pub fn peekEvent(self: *Self) !?Event {
-        @compileError("unimplemented!");
+    /// Read `n` bytes from terminal.
+    pub fn read_up_to(self: *Self, n: i32) !isize {
+        const prev_len = self.input_buffer.items.len;
+        self.input_buffer.ensureCapacity(self.input_buffer.capacity + n);
+
+        var read_n = 0;
+        while (read_n <= n) {
+            var r: isize = 0;
+            if (read_n < n) {
+                r = c.read(inout, self.input_buffer.items.ptr + prev_len + read_n, n - read_n);
+            }
+
+            if (r < 0) {
+                std.debug.assert(c.errno != c.EAGAIN and c.errno != c.EWOULDBLOCK);
+                return error.Idk; // TODO check man pages
+            } else if (r > 0) {
+                read_n += r;
+            } else {
+                // TODO: maybe???
+                self.input_buffer.ensureCapacity(prev_len + read_n);
+                return read_n;
+            }
+        }
+        unreachable;
     }
 
-    /// Blocking; wait for next available event and consume it.
-    pub fn pollEvent(self: *Self) !Event {
-        @compileError("unimplemented!");
+    /// If timeout is less than or equal to zero:
+    /// Blocking; return next available Event if one is present, and null otherwise.
+    /// If timeout is greater than zero:
+    /// Non-blocking; return next available Event if one arises within `timeout` ms.
+    pub fn pollEvent(self: *Self, timeout: i32) !?Event {
+        // Describe the timeout with a timeval in seconds and microseconds.
+        const tv = c.timeval{
+            .tv_sec = timeout / 1000,
+            .tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000,
+        };
+
+        var events: c.fd_set;
+
+        // Attempt to read an event from the input buffer
+
+
+        return null; // TODO: replace
     }
 
     /// Set terminal title.
