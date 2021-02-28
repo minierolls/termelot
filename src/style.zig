@@ -179,22 +179,22 @@ pub const ColorBit24 = packed struct {
 
 /// Binary search sorted `slice` for closest value to `val` between indices `start` and `end`.
 /// Returns index to `slice` where closest number is found.
-fn binarySearchClosest(slice: []const u24, start: usize, end: usize, val: u24) usize {
+fn binarySearchClosest(slice: []const u24, start: isize, end: isize, val: u24) usize {
     var l = start;
     var r = end;
     var mid: usize = 0;
 
     while (l <= r) {
-        mid = l + (r - l) / 2;
+        mid = @intCast(usize, l + @divFloor(r - l, 2)); // The division result will never be negative
         // NOTE: this binary search does not include the difference in value between selections,
         // so although a number like 0x949493 might be very close to 0x949494, the lower value in
         // the table may be selected instead, because we do not weigh the difference between each
         // whole color. This is better for performance and might not show much difference.
 
         if (slice[mid] < val) {
-            l = mid + 1;
+            l = @intCast(isize, mid) + 1;
         } else if (slice[mid] > val) {
-            r = mid - 1;
+            r = @intCast(isize, mid) - 1;
         } else {
             return mid; // Found an exact match
         }
