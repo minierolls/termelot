@@ -117,11 +117,11 @@ pub const Termelot = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        if (self.config.alternate_screen) {
-            self.backend.setAlternateScreen(false) catch {};
-        }
         if (self.config.raw_mode) {
             self.backend.setRawMode(false) catch {};
+        }
+        if (self.config.alternate_screen) {
+            self.backend.setAlternateScreen(false) catch {};
         }
         self.screen_buffer.deinit();
         self.backend.deinit();

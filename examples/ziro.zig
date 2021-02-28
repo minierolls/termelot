@@ -19,7 +19,7 @@ const Position = termelot.Position;
 const Cell = termelot.Cell;
 const Style = style.Style;
 const Color = style.Color;
-const ColorBit8 = style.ColorBit8;
+const ColorNamed16 = style.ColorNamed16;
 const Decorations = style.Decorations;
 
 pub fn log(
@@ -45,27 +45,29 @@ pub fn main() !void {
     defer _ = term.deinit();
 
     term.setCell(
-        Position{ .row = 0, .col = 0 },
+        Position{ .row = 5, .col = 3 },
         Cell{
             .rune = 'X',
             .style = Style{
-                .fg_color = Color{ .Bit8 = ColorBit8{ .code = 148 } },
-                .bg_color = Color{ .Bit8 = ColorBit8{ .code = 197 } },
+                .fg_color = Color{ .Named16 = ColorNamed16.BrightRed },
+                .bg_color = Color{ .Named16 = ColorNamed16.Blue },
                 .decorations = Decorations{
                     .italic = false,
-                    .bold = true,
+                    .bold = term.supported_features.decorations.bold,
                     .underline = false,
                     .blinking = false,
                 },
             },
         },
     );
-    term.setCell(
-        Position{ .row = 0, .col = 1 },
-        Cell{
-            .rune = 'X',
-            .style = term.screen_buffer.default_style,
-        },
-    );
+    // term.setCell(
+    //     Position{ .row = 0, .col = 1 },
+    //     Cell{
+    //         .rune = 'X',
+    //         .style = term.screen_buffer.default_style,
+    //     },
+    // );
     try term.drawScreen();
+
+    std.time.sleep(4 * std.time.ns_per_s);
 }

@@ -20,7 +20,7 @@ pub fn targetRequiresLibC(target: std.zig.CrossTarget) bool {
 }
 
 pub fn build(b: *Builder) !void {
-    b.setPreferredReleaseMode(.ReleaseFast);
+    b.setPreferredReleaseMode(.ReleaseSafe);
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
@@ -86,4 +86,16 @@ pub fn build(b: *Builder) !void {
 
     const init_run_step = b.step("init", "Run the `init` example");
     init_run_step.dependOn(&init_run_cmd.step);
+    
+    var termelot_example = b.addExecutable("termelot", "examples/termelot.zig");
+    termelot_example.setBuildMode(mode);
+    termelot_example.setTarget(target);
+    termelot_example.setOutputDir(examples_output_path);
+    termelot_example.addPackagePath("termelot", "src/termelot.zig");
+    termelot_example.linkLibC();
+
+    const termelot_example_run_cmd = termelot_example.run();
+
+    const termelot_example_run_step = b.step("termelot", "Run the `termelot` example");
+    termelot_example_run_step.dependOn(&termelot_example_run_cmd.step);
 }
