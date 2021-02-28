@@ -17,4 +17,4 @@
 
 # Blacklist (overrides Whitelist)
 build/*
-zig-cache/*
+**/zig-cache/*

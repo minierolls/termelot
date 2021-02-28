@@ -155,7 +155,6 @@ pub const Backend = struct {
 
     /// Initialize backend
     pub fn init(
-        termelot: *Termelot,
         allocator: *std.mem.Allocator,
         config: Config,
     ) !Backend {
