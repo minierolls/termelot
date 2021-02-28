@@ -23,11 +23,15 @@ pub fn build(b: *Builder) !void {
     // lib.setTarget(target);
     // lib.setOutputDir(output_path);
     // lib.linkLibC();
+    // NOTE: -femit-h is not available in the stage1 backend; no .h file will be produced
     // lib.emit_h = true;
 
     // b.default_step.dependOn(&lib.step);
 
     const lib_tests = b.addTest("src/termelot.zig");
+    lib_tests.linkLibC();
+    lib_tests.addIncludeDir("/usr/include/");
+    lib_tests.linkSystemLibrary("ncursesw");
     lib_tests.setBuildMode(mode);
 
     const test_step = b.step("test", "Run library tests");
