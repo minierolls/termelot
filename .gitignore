@@ -4,10 +4,8 @@
 
 
 #Whitelist
-!README.md
+!*.md
 !LICENSE
-!CODE_OF_CONDUCT.md
-!CONTRIBUTING.md
 !media/*
 !.gitignore
 !.github/**
