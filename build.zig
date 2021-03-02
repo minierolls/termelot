@@ -59,7 +59,7 @@ pub fn build(b: *Builder) !void {
 
     const lib_tests = b.addTest("src/termelot.zig");
     lib_tests.setBuildMode(mode);
-    lib_tests.linkLibrary(lib);
+    // lib_tests.linkLibrary(lib);
     lib_tests.addPackage(backend_pkg);
 
     const test_step = b.step("test", "Run library tests");
@@ -67,10 +67,16 @@ pub fn build(b: *Builder) !void {
 
     // Examples
 
-    addExample(b, lib, backend_pkg, "init", "examples/init.zig", target, mode);
-    addExample(b, lib, backend_pkg, "donut", "examples/donut.zig", target, mode);
-    addExample(b, lib, backend_pkg, "castle", "examples/castle.zig", target, mode);
-    addExample(b, lib, backend_pkg, "ziro", "examples/ziro.zig", target, mode);
+    const lib_pkg = Pkg{
+        .name = "termelot",
+        .path = "src/termelot.zig",
+        .dependencies = &[1]Pkg{backend_pkg},
+    };
+
+    addExample(b, lib, lib_pkg, "init", "examples/init.zig", target, mode);
+    addExample(b, lib, lib_pkg, "donut", "examples/donut.zig", target, mode);
+    addExample(b, lib, lib_pkg, "castle", "examples/castle.zig", target, mode);
+    addExample(b, lib, lib_pkg, "ziro", "examples/ziro.zig", target, mode);
 }
 
 pub fn backendAsPkg(backend: BackendName) std.build.Pkg {
@@ -128,7 +134,7 @@ pub fn applyBuildOptions(lib: *LibExeObjStep, backend: BackendName) !void {
 }
 
 /// Add an example to the list of build options.
-fn addExample(b: *Builder, lib: *LibExeObjStep, backend_pkg: Pkg, comptime name: []const u8, root_src: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode) void {
+fn addExample(b: *Builder, lib: *LibExeObjStep, lib_pkg: Pkg, comptime name: []const u8, root_src: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode) void {
     const examples_output_path = fs.path.join(b.allocator, &[_][]const u8{
         b.build_root,
         "build",
@@ -139,19 +145,11 @@ fn addExample(b: *Builder, lib: *LibExeObjStep, backend_pkg: Pkg, comptime name:
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.setOutputDir(examples_output_path);
-    // exe.step.dependOn(&lib.step);
 
-    // Anything commented out I have tried... anything not commented I have
-    // also tried...
-
-    exe.addPackagePath("termelot", "src/termelot.zig");
-    // exe.addPackagePath("backend", "src/backend/termios.zig");
-    exe.addPackage(backend_pkg);
-    lib.addPackage(backend_pkg);
-    // exe.linkLibrary(lib);
+    // Resolve imports for "termelot" and "backend"
+    exe.addPackage(lib_pkg);
 
     const run_cmd = exe.run();
-    // run_cmd.step.dependOn(b.default_step);
 
     const run_step = b.step(name, "Run the '" ++ name ++ "' example");
     run_step.dependOn(&run_cmd.step);
