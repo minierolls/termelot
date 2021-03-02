@@ -9,12 +9,8 @@ const LibExeObjStep = std.build.LibExeObjStep;
 const Pkg = std.build.Pkg;
 const fs = std.fs;
 
-const BackendName = enum {
-    termios,
-    windows,
-    ncurses,
-    unimplemented,
-};
+const BackendName = @import("src/backend.zig").BackendName;
+
 const backends = @typeInfo(BackendName).Enum.fields;
 
 // pub fn targetRequiresLibC(target: std.zig.CrossTarget) bool {
@@ -47,7 +43,7 @@ pub fn build(b: *Builder) !void {
 
     const backend = try getBackend(b);
     const backend_path = backendNameToPath(backend);
-    std.log.info("Selected {} for backend at {}.", .{@tagName(backend), backend_path});
+    std.log.info("Selected {} for backend at {}.", .{ @tagName(backend), backend_path });
 
     // NOTE: make Pkg of backend and use it EVERYWHERE
     const backend_pkg = backendAsPkg(backend);
@@ -73,13 +69,13 @@ pub fn build(b: *Builder) !void {
         .dependencies = &[1]Pkg{backend_pkg},
     };
 
-    addExample(b, lib, lib_pkg, "init", "examples/init.zig", target, mode);
-    addExample(b, lib, lib_pkg, "donut", "examples/donut.zig", target, mode);
-    addExample(b, lib, lib_pkg, "castle", "examples/castle.zig", target, mode);
-    addExample(b, lib, lib_pkg, "ziro", "examples/ziro.zig", target, mode);
+    addExample(b, lib_pkg, "init", "examples/init.zig", target, mode);
+    addExample(b, lib_pkg, "donut", "examples/donut.zig", target, mode);
+    addExample(b, lib_pkg, "castle", "examples/castle.zig", target, mode);
+    addExample(b, lib_pkg, "ziro", "examples/ziro.zig", target, mode);
 }
 
-pub fn backendAsPkg(backend: BackendName) std.build.Pkg {
+pub fn backendAsPkg(backend: BackendName) Pkg {
     return std.build.Pkg{
         .name = "backend",
         .path = backendNameToPath(backend),
@@ -134,7 +130,7 @@ pub fn applyBuildOptions(lib: *LibExeObjStep, backend: BackendName) !void {
 }
 
 /// Add an example to the list of build options.
-fn addExample(b: *Builder, lib: *LibExeObjStep, lib_pkg: Pkg, comptime name: []const u8, root_src: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode) void {
+fn addExample(b: *Builder, lib_pkg: Pkg, comptime name: []const u8, root_src: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode) void {
     const examples_output_path = fs.path.join(b.allocator, &[_][]const u8{
         b.build_root,
         "build",
