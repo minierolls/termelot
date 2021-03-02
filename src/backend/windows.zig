@@ -5,14 +5,15 @@
 
 const std = @import("std");
 
-const termelot_import = @import("../termelot.zig");
-const Termelot = termelot_import.Termelot;
-const SupportedFeatures = termelot_import.SupportedFeatures;
-const Config = termelot_import.Config;
-const Position = termelot_import.Position;
-usingnamespace termelot_import.style;
-const Size = termelot_import.Size;
-const Rune = termelot_import.Rune;
+const termelot = @import("../termelot.zig");
+usingnamespace termelot.style;
+usingnamespace termelot.event;
+const BackendName = termelot.backend.BackendName;
+const Config = termelot.Config;
+const Position = termelot.Position;
+const Rune = termelot.Rune;
+const Size = termelot.Size;
+const SupportedFeatures = termelot.SupportedFeatures;
 
 const windows = std.os.windows;
 
@@ -233,6 +234,10 @@ pub const Backend = struct {
     input_thread_running: bool,
 
     const Self = @This();
+
+    /// The tag of a backend is like its identifier. It is used in the build system, and by users
+    /// for comptime code.
+    pub const tag = BackendName.unimplemented;
 
     /// Initialize backend
     pub fn init(

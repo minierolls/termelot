@@ -15,15 +15,15 @@ const ArrayList = std.ArrayList;
 const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut();
 
-const termelot_import = @import("../termelot.zig");
-const Termelot = termelot_import.Termelot;
-const Config = termelot_import.Config;
-const SupportedFeatures = termelot_import.SupportedFeatures;
-const Position = termelot_import.Position;
-const Size = termelot_import.Size;
-const Rune = termelot_import.Rune;
-usingnamespace termelot_import.style;
-usingnamespace termelot_import.event;
+const termelot = @import("../termelot.zig");
+usingnamespace termelot.style;
+usingnamespace termelot.event;
+const BackendName = termelot.backend.BackendName;
+const Config = termelot.Config;
+const Position = termelot.Position;
+const Rune = termelot.Rune;
+const Size = termelot.Size;
+const SupportedFeatures = termelot.SupportedFeatures;
 
 fn ioctl(fd: std.os.fd_t, request: u32, comptime ResT: type) !ResT {
     var res: ResT = undefined;
@@ -152,6 +152,10 @@ pub const Backend = struct {
     input_buffer: ArrayList(u8),
 
     const Self = @This();
+
+    /// The tag of a backend is like its identifier. It is used in the build system, and by users
+    /// for comptime code.
+    pub const tag = BackendName.termios;
 
     /// Initialize backend
     pub fn init(

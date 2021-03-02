@@ -5,12 +5,13 @@
 
 const std = @import("std");
 
+pub const backend = @import("backend.zig");
 pub const style = @import("style.zig");
 usingnamespace style;
 pub const event = @import("event.zig");
 usingnamespace event;
 
-pub const Backend = @import("backend.zig").backend.Backend;
+pub const Backend = backend.backend.Backend;
 pub const Buffer = @import("buffer.zig").Buffer;
 pub const Rune = @import("rune.zig").Rune;
 
@@ -90,29 +91,29 @@ pub const Termelot = struct {
         allocator: *std.mem.Allocator,
         config: Config,
     ) !Termelot {
-        var backend = try Backend.init(allocator, config);
-        errdefer backend.deinit();
+        var b = try Backend.init(allocator, config);
+        errdefer b.deinit();
         
         if (config.raw_mode) {
-            try backend.setRawMode(true);
+            try b.setRawMode(true);
         }
         if (config.alternate_screen) {
-            try backend.setAlternateScreen(true);
+            try b.setAlternateScreen(true);
         }
 
         return Termelot{
             .config = config,
-            .supported_features = try backend.getSupportedFeatures(),
+            .supported_features = try b.getSupportedFeatures(),
             .allocator = allocator,
-            .cursor_position = try backend.getCursorPosition(),
-            .cursor_visible = try backend.getCursorVisibility(),
-            .screen_size = try backend.getScreenSize(),
+            .cursor_position = try b.getCursorPosition(),
+            .cursor_visible = try b.getCursorVisibility(),
+            .screen_size = try b.getScreenSize(),
             .screen_buffer = try Buffer.init(
-                &backend,
+                &b,
                 allocator,
                 config.initial_buffer_size,
             ),
-            .backend = backend,
+            .backend = b,
         };
     }
 
