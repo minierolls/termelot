@@ -120,7 +120,7 @@ pub const Buffer = struct {
             .rune = self.default_rune,
             .style = self.default_style,
         };
-
+        _ = fill;
         // Sanity checks
         {
             std.debug.assert(self.rune_buffer.items.len == b_length);
@@ -427,7 +427,6 @@ pub const Buffer = struct {
     pub fn fillCells(
         self: *Self,
         position: Position,
-        length: u16,
         new_cell: Cell,
     ) void {
         if (position.row >= self.size.rows or position.col >= self.size.cols) {

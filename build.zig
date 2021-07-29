@@ -43,7 +43,7 @@ pub fn build(b: *Builder) !void {
 
     const backend = try getBackend(b);
     const backend_path = backendNameToPath(backend);
-    std.log.info("Selected {} for backend at {}.", .{ @tagName(backend), backend_path });
+    std.log.info("Selected {s} for backend at {s}.", .{ @tagName(backend), backend_path });
 
     // NOTE: make Pkg of backend and use it EVERYWHERE
     const backend_pkg = backendAsPkg(backend);
@@ -65,7 +65,7 @@ pub fn build(b: *Builder) !void {
 
     const lib_pkg = Pkg{
         .name = "termelot",
-        .path = "src/termelot.zig",
+        .path = .{ .path = "src/termelot.zig" },
         .dependencies = &[1]Pkg{backend_pkg},
     };
 
@@ -78,7 +78,7 @@ pub fn build(b: *Builder) !void {
 pub fn backendAsPkg(backend: BackendName) Pkg {
     return std.build.Pkg{
         .name = "backend",
-        .path = backendNameToPath(backend),
+        .path = .{ .path = backendNameToPath(backend) },
         .dependencies = null,
     };
 }
@@ -101,9 +101,9 @@ pub fn getBackend(b: *Builder) !BackendName {
                 return @intToEnum(BackendName, backend.value);
             }
         }
-        std.log.crit("'{}' is not a backend choice. Possible backends include:", .{val});
+        std.log.crit("'{s}' is not a backend choice. Possible backends include:", .{val});
         inline for (backends) |backend| {
-            std.log.crit("{}", .{backend.name});
+            std.log.crit("{s}", .{backend.name});
             return error.NoBackend;
         }
     } else {

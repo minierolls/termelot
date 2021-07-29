@@ -57,8 +57,8 @@ pub const Color = union(ColorType) {
     }
 
     /// Create a new Color from one of 16 color names with a ColorNamed16.
-    pub inline fn named(named: ColorNamed16) Color {
-        return Color{ .Named16 = named };
+    pub inline fn named(n: ColorNamed16) Color {
+        return Color{ .Named16 = n };
     }
 };
 
@@ -118,6 +118,7 @@ pub const ColorBit8 = packed struct {
     }
 
     pub fn roundToNamed16(self: Self) ColorNamed16 {
+        _ = self;
         @compileError("unimplemented");
     }
 };
@@ -254,9 +255,9 @@ const grey_table = [24]u24{
 // Tables from https://www.calmar.ws/vim/256-xterm-24bit-rgb-color-chart.html
 
 test "roundToBit8" {
-    std.testing.expectEqual((ColorBit24 { .code = 0xFFFFFF }).roundToBit8().code, 231); // Index for white
-    std.testing.expectEqual((ColorBit24 { .code = 0xFF0000 }).roundToBit8().code, 196); // Index for red
-    std.testing.expectEqual((ColorBit24 { .code = 0x949494 }).roundToBit8().code, 246); // Index for some smokey color (grey_table)
-    std.testing.expectEqual((ColorBit24 { .code = 0x080808 }).roundToBit8().code, 232); // Index for similar to black (grey_table)
+    std.testing.expectEqual((ColorBit24{ .code = 0xFFFFFF }).roundToBit8().code, 231); // Index for white
+    std.testing.expectEqual((ColorBit24{ .code = 0xFF0000 }).roundToBit8().code, 196); // Index for red
+    std.testing.expectEqual((ColorBit24{ .code = 0x949494 }).roundToBit8().code, 246); // Index for some smokey color (grey_table)
+    std.testing.expectEqual((ColorBit24{ .code = 0x080808 }).roundToBit8().code, 232); // Index for similar to black (grey_table)
     // NOTE: cannot test rounding because of inaccuracy. See note in binarySearchClosest().
 }

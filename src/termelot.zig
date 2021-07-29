@@ -28,7 +28,7 @@ pub fn log(
 ) void {
     const prefix = "[" ++ @tagName(scope) ++ ":" ++ @tagName(level) ++ "] ";
 
-    var buf = [_]u8 { ' ' } ** 1024; // Reserve array of 1024 bytes in stack
+    var buf = [_]u8{' '} ** 1024; // Reserve array of 1024 bytes in stack
     var exe_dir = std.fs.cwd().openDir(std.fs.selfExeDirPath(&buf) catch return, .{ .access_sub_paths = true }) catch return;
     defer exe_dir.close();
     var log_file = exe_dir.createFile(
@@ -88,19 +88,20 @@ pub const Termelot = struct {
     const Self = @This();
 
     pub fn init(
+        self: *Self,
         allocator: *std.mem.Allocator,
         config: Config,
     ) !Termelot {
         var b = try Backend.init(allocator, config);
         errdefer b.deinit();
-        
+
         if (config.raw_mode) {
             try b.setRawMode(true);
         }
         if (config.alternate_screen) {
             try b.setAlternateScreen(true);
         }
-
+        _ = self;
         return Termelot{
             .config = config,
             .supported_features = try b.getSupportedFeatures(),
