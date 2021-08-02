@@ -21,7 +21,8 @@ pub fn main() void {
         .initial_buffer_size = null, // We don't care
     };
 
-    var term = termelot.Termelot.init(&gpa.allocator, config) catch |e| {
+    var term: termelot.Termelot = undefined;
+    term = term.init(&gpa.allocator, config) catch |e| {
         std.log.crit("Termelot could not be initialized! Error: {}", .{e});
         return;
     };

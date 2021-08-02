@@ -8,7 +8,7 @@ const c = @cImport({
     @cInclude("sys/time.h");
     @cInclude("termios.h");
 });
-
+const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
@@ -57,7 +57,7 @@ fn tcflags(comptime itms: anytype) std.os.tcflag_t {
 }
 
 const VMIN: usize = switch (std.builtin.os.tag) {
-    .linux => switch (std.builtin.arch) {
+    .linux => switch (std.builtin.cpu.arch) {
         .x86_64 => 6,
         .aarch64 => 6,
         .mipsel => 4,
@@ -66,7 +66,7 @@ const VMIN: usize = switch (std.builtin.os.tag) {
     else => c.VMIN,
 };
 const VTIME = switch (std.builtin.os.tag) {
-    .linux => switch (std.builtin.arch) {
+    .linux => switch (std.builtin.cpu.arch) {
         .x86_64 => 5,
         .aarch64 => 5,
         .mipsel => 5,
@@ -118,11 +118,11 @@ fn makeRaw(current_termios: TermiosType) TermiosType {
 }
 fn tcgetattr(fd: std.os.fd_t) !TermiosType {
     switch (std.builtin.os.tag) {
-        .linux => return std.os.tcgetattr(stdin.handle) catch
+        .linux => return std.os.tcgetattr(fd) catch
             return error.BackendError,
         else => {
             var current_termios: TermiosType = undefined;
-            if (c.tcgetattr(stdin.handle, &current_termios) < 0) {
+            if (c.tcgetattr(fd, &current_termios) < 0) {
                 return error.BackendError;
             }
             return current_termios;
@@ -163,7 +163,7 @@ pub const Backend = struct {
         config: Config,
     ) !Backend {
         const orig_termios = try tcgetattr(stdin.handle);
-
+        _ = config;
         var result = Backend{
             .orig_termios = orig_termios,
             .allocator = allocator,
@@ -186,6 +186,7 @@ pub const Backend = struct {
 
     /// Retrieve supported features for this backend.
     pub fn getSupportedFeatures(self: *Self) !SupportedFeatures {
+        _ = self;
         return SupportedFeatures{
             .color_types = .{
                 .Named16 = true,
@@ -202,7 +203,7 @@ pub const Backend = struct {
     }
 
     /// Retrieve raw mode status.
-    pub fn getRawMode(self: *Self) !bool {
+    pub fn getRawMode() !bool {
         const current_termios = try tcgetattr(stdin.handle);
 
         const new_termios = makeRaw(current_termios);
@@ -281,21 +282,25 @@ pub const Backend = struct {
             .tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000,
         };
 
-        var events: c.fd_set;
+        var events: c.fd_set = undefined;
+        _ = events;
+        _ = tv;
+        _ = self;
 
         // Attempt to read an event from the input buffer
-
 
         return null; // TODO: replace
     }
 
     /// Set terminal title.
     pub fn setTitle(self: *Self, runes: []const Rune) !void {
-        _ = try stdout.writer().print("\x1b]0;{}\x07", .{runes});
+        _ = self;
+        _ = try stdout.writer().print("\x1b]0;{s}\x07", .{runes});
     }
 
     /// Get screen size.
     pub fn getScreenSize(self: *Self) !Size {
+        _ = self;
         switch (std.builtin.os.tag) {
             .linux => {
                 const ws = ioctl(

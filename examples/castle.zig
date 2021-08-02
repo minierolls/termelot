@@ -20,11 +20,12 @@ pub fn main() !void {
     const config = termelot.Config{
         .raw_mode = true,
         .alternate_screen = true,
+        .initial_buffer_size = .{ .rows = 800, .cols = 800 },
     };
 
     // Initialize Termelot
     var term: termelot.Termelot = undefined;
-    try term.init(&gpa.allocator, config, null);
+    term = try term.init(&gpa.allocator, config);
     defer _ = term.deinit();
 
     try term.setCursorVisibility(false); // Hide the cursor
@@ -66,7 +67,7 @@ pub fn main() !void {
     while (running) {
         const this_frame_time = std.time.milliTimestamp();
         const delta = this_frame_time - last_frame_time; // ms between render calls
-
+        _ = delta;
         // Clear Termelot's internal screen buffer
         term.screen_buffer.clear();
 
@@ -88,6 +89,10 @@ pub fn main() !void {
         std.time.sleep(50 * std.time.ns_per_ms);
 
         last_frame_time = this_frame_time;
+
+        //running = false;
+        //try term.setCursorVisibility(true);
+        //term.clearScreen();
     }
 }
 
@@ -111,7 +116,7 @@ fn renderAscii(term: *termelot.Termelot, draw_pos: SignedPos, style: Style, slic
     var i: usize = 0;
     while (i < slice.len) : (i += 1) {
         const c = slice[i];
-        if (c == 0) break; 
+        if (c == 0) break;
         if (c == '\n') {
             pos.col = draw_pos.col;
             pos.row += 1;
@@ -119,7 +124,7 @@ fn renderAscii(term: *termelot.Termelot, draw_pos: SignedPos, style: Style, slic
         }
         // Skip out of bounds chars (see SignedPos)
         if (pos.row < 0 or pos.col < 0) continue;
-        
+
         if (c == '0') {
             // Don't modify cell here
         } else {
@@ -135,8 +140,8 @@ fn renderAscii(term: *termelot.Termelot, draw_pos: SignedPos, style: Style, slic
             }
 
             term.setCell(
-                Position { .row = @intCast(u16, pos.row), .col = @intCast(u16, pos.col) },
-                Cell {
+                Position{ .row = @intCast(u16, pos.row), .col = @intCast(u16, pos.col) },
+                Cell{
                     .rune = c,
                     .style = Style{
                         .fg_color = fg,

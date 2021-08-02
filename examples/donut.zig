@@ -27,7 +27,8 @@ pub fn main() !void {
         .initial_buffer_size = null,
     };
 
-    var term = try termelot.Termelot.init(&gpa.allocator, config);
+    var term: termelot.Termelot = undefined;
+    term = try term.init(&gpa.allocator, config);
     defer term.deinit();
 
     try term.setCursorVisibility(false);

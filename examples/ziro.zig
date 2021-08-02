@@ -38,10 +38,11 @@ pub fn main() !void {
     const config = termelot.Config{
         .raw_mode = true,
         .alternate_screen = true,
+        .initial_buffer_size = .{ .rows = 800, .cols = 800 },
     };
 
     var term: termelot.Termelot = undefined;
-    try term.init(&gpa.allocator, config, null);
+    term = try term.init(&gpa.allocator, config);
     defer _ = term.deinit();
 
     term.setCell(
